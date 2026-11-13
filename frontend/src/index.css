@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+:root {
+  --primary: #e66b33;
+  --primary-hover: #cf5a28;
+  --primary-glow: rgba(230, 107, 51, 0.2);
+  --copper: #C59C8F;
+  --copper-hover: #A87B6D;
+  --copper-glow: rgba(197, 156, 143, 0.2);
+  --pricing-primary: #e66b33;
+  --pricing-bg: #0a0a0c;
+  --master: #7c4dff;
+  --bg-main: #FAF9F9;
+  --bg-card: #ffffff;
+  --text-main: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --border: rgba(0, 0, 0, 0.08);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --radius-lg: 24px;
+  --radius-xl: 40px;
+  --radius-mobile: 20px; /* 手机端通用圆角 */
+  --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --z-drawer: 2000;
+  --z-tabbar: 1000;
+}
+
+
+@keyframes slideUpDrawer {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px var(--primary-glow);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px var(--primary-glow);
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+@keyframes slideDown {
+  from {
+    transform: translate(-50%, -100%);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+/* 核心分屏布局 */
+.desktop-main-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  margin-top: 20px;
+  align-items: stretch;
+}
+
+@media (max-width: 1400px) {
+  .desktop-main-layout {
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .desktop-main-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- 大师模式动画 --- */
+@keyframes orbPulse {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.6); opacity: 0.1; }
+}
+
+@keyframes particleFloat {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1.2); opacity: 0; }
+}
+
+.thinking-orb {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, var(--master) 0%, transparent 70%);
+  filter: blur(20px);
+  animation: orbPulse 3s infinite ease-in-out;
+}
+
+.neural-particle {
+  position: absolute;
+  color: var(--master);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: particleFloat 2.5s forwards cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0;
+}
+
+.glass-badge {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(124, 77, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(124, 77, 255, 0.15);
+}
+
+.noise-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+}
+
+
+/* AI 智能优化呼吸灯动画 (Task 2.1) */
+@keyframes ai-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ai-enhancing-border {
+  position: relative;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #e66b33, #ff9d6c, #ffd0b5, #e66b33);
+  background-size: 300% 300%;
+  animation: ai-shimmer 2s ease infinite;
+  padding: 2px; /* 露边形成边框 */
+  transition: all 0.5s ease;
+  box-shadow: 0 0 20px rgba(230, 107, 51, 0.3);
+}
+
+.ai-enhancing-inner {
+  background: white !important;
+  border-radius: 14px;
+}
+
+/* 提示词替换淡入效果 */
+.prompt-fade-in {
+  animation: prompt-fade-in 0.8s ease-out;
+}
+
+@keyframes prompt-fade-in {
+  from { opacity: 0.5; filter: blur(2px); }
+  to { opacity: 1; filter: blur(0); }
+}
+/* --- 通用弹窗系统 --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(15px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeInOverlay 0.4s ease-out;
+}
+
+.modal-content {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 32px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 500px;
+  padding: 40px;
+  animation: slideUpDrawer 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.btn-secondary {
+  background: #f5f5f7;
+  color: #1d1d1f;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-secondary:hover {
+  background: #e8e8ed;
+  transform: translateY(-1px);
+}
