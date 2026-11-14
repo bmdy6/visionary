@@ -5,6 +5,8 @@ import { creditsChanged } from "../hooks/useBilling";
 const LABELS = {
   NEW_USER_FREE_GENERATIONS: "新用户免费试用次数",
   NEW_USER_POINTS: "新用户赠送积分",
+  API_TOKENS_PER_USER: "每个用户有效 Token 上限",
+  MCP_MAX_IMAGES_PER_CALL: "MCP 单次调用最多张数",
 };
 const TIERS = { standard: "标准", hd: "高清", master: "大师" };
 export default function CreditSettings() {
@@ -167,6 +169,26 @@ export default function CreditSettings() {
                   }
                 />
               </div>
+              <div className="credits-setting-row">
+                <div>
+                  <label htmlFor="API_TOKENS_ENABLED">开放 API 与 MCP</label>
+                  <small>API_TOKENS_ENABLED · 默认开启</small>
+                </div>
+                <input
+                  id="API_TOKENS_ENABLED"
+                  className="credits-toggle"
+                  type="checkbox"
+                  checked={values.API_TOKENS_ENABLED.value}
+                  onChange={(e) =>
+                    change("API_TOKENS_ENABLED", e.target.checked)
+                  }
+                />
+              </div>
+              {number("API_TOKENS_PER_USER")}
+              {number("MCP_MAX_IMAGES_PER_CALL")}
+              <p className="muted">
+                MCP 工具每次生成一张；上限设为 0 时关闭 MCP 生成。
+              </p>
             </fieldset>
           </div>
           <div className="credits-settings-actions">

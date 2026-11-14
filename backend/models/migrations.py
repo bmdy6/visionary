@@ -7,7 +7,7 @@ def migrate(engine):
     # Run with the app stopped; create_all alone cannot add existing-table columns.
     Base.metadata.create_all(engine)
     additions = {
-        "users": {"trial_remaining": "INTEGER NOT NULL DEFAULT 0", "frozen_trials": "INTEGER NOT NULL DEFAULT 0"},
+        "users": {"unlimited_credits": "BOOLEAN NOT NULL DEFAULT 0", "trial_remaining": "INTEGER NOT NULL DEFAULT 0", "frozen_trials": "INTEGER NOT NULL DEFAULT 0"},
         "image_logs": {"upstream_cost_rmb": "NUMERIC(12, 4)", "deleted_at": "DATETIME", "source": "VARCHAR(32) NOT NULL DEFAULT 'normal'", "trial_used": "BOOLEAN NOT NULL DEFAULT 0", "aspect_ratio": "VARCHAR(16) DEFAULT '1:1'"},
     }
     with engine.begin() as conn:

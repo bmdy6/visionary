@@ -6,13 +6,17 @@ from backend.models.database import Base, engine, session_scope
 from backend.models import models
 from backend.core.security import get_password_hash
 from backend.core.utils import generate_unique_uid
+from backend.core.billing_config import new_user_points
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--admin", metavar="USERNAME", help="create an administrator; password is prompted")
     parser.add_argument("--if-missing", action="store_true", help="keep an existing administrator unchanged")
+    parser.add_argument("--unlimited", action="store_true", help="enable unlimited credits for the administrator being created")
     args = parser.parse_args()
+    if args.unlimited and not args.admin:
+        parser.error("--unlimited requires --admin")
     from backend.models.migrations import migrate
     migrate(engine)
     print("Database tables initialized (no seeded users).")
@@ -31,8 +35,8 @@ def main():
             if db.scalar(select(models.User).where(models.User.username == args.admin)):
                 parser.error("username already exists")
             db.add(models.User(username=args.admin, password_hash=get_password_hash(password),
-                               uid=generate_unique_uid(db), is_admin=True, points=100))
-        print("Local administrator created with 100 demo credits.")
+                               uid=generate_unique_uid(db), is_admin=True, unlimited_credits=args.unlimited, points=new_user_points()))
+        print("Local administrator created with configured registration credits.")
 
 
 if __name__ == "__main__":

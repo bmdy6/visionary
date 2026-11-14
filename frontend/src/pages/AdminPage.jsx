@@ -258,6 +258,7 @@ export default function AdminPage() {
                     "注册",
                     "积分",
                     "试用剩余",
+                    "无限积分",
                     "本月生成",
                     "上游成本",
                     "操作",
@@ -271,8 +272,39 @@ export default function AdminPage() {
                   <tr key={u.id}>
                     <td>{u.username}</td>
                     <td>{u.created_at.slice(5, 10)}</td>
-                    <td>{u.points}</td>
-                    <td>{u.trial_remaining}</td>
+                    <td>{u.unlimited_credits ? "—" : u.points}</td>
+                    <td>{u.unlimited_credits ? "—" : u.trial_remaining}</td>
+                    <td>
+                      <input
+                        className="credits-toggle"
+                        type="checkbox"
+                        role="switch"
+                        aria-label={`${u.username} 无限积分`}
+                        checked={u.unlimited_credits}
+                        disabled={busy}
+                        onChange={async (e) => {
+                          const enabled = e.target.checked;
+                          setBusy(true);
+                          setError("");
+                          try {
+                            const updated = await request.put(
+                              `/admin/users/${u.id}/unlimited`,
+                              { enabled },
+                            );
+                            setUsers((prev) =>
+                              prev.map((row) =>
+                                row.id === u.id ? updated : row,
+                              ),
+                            );
+                            creditsChanged();
+                          } catch (error) {
+                            setError(errorText(error, "修改失败，请重试"));
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      />
+                    </td>
                     <td>{u.monthly_images}</td>
                     <td>
                       ¥{Number(u.upstream_cost).toFixed(2)}

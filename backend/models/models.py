@@ -19,6 +19,7 @@ class User(Base):
     frozen_trials = Column(Integer, default=0, nullable=False, server_default="0")
     uid = Column(String(20), unique=True, index=True)
     last_ip = Column(String)
+    unlimited_credits = Column(Boolean, default=False, nullable=False, server_default="0")
     is_admin = Column(Boolean, default=False)
     has_used_experience = Column(Boolean, default=False) # 新增：是否已使用过 1 元体验
     created_at = Column(DateTime, default=lambda: datetime.now(__import__('datetime').timezone(__import__('datetime').timedelta(hours=8))))
@@ -119,3 +120,18 @@ class AssistantPlan(Base):
     version = Column(Integer, nullable=False)
     data = Column(Text, nullable=False)
     task_id = Column(Integer, nullable=True)
+
+
+class ApiToken(Base):
+    __tablename__ = "api_tokens"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(80), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    prefix = Column(String(12), nullable=False)
+    suffix = Column(String(4), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
+    usage_month = Column(String(7), nullable=True)
+    monthly_calls = Column(Integer, default=0, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)

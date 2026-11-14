@@ -35,6 +35,7 @@ class UserInfo(UserBase):
     frozen_points: int = 0
     trial_remaining: int = 0
     frozen_trials: int = 0
+    unlimited_credits: bool = False
     is_admin: bool
     has_used_experience: bool = False
     created_at: datetime

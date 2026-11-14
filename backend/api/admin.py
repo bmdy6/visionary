@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from pydantic import BaseModel, StrictBool
 from ..models.database import get_db
 from ..models import models
 from ..crud import user as user_crud, recharge as recharge_crud
@@ -131,7 +132,7 @@ def dashboard_stats(db: Session = Depends(get_db), admin: models.User = Depends(
 def user_summary(db, user):
     monthly = db.query(models.ImageLog).filter(models.ImageLog.user_id == user.id, models.ImageLog.created_at >= month_start())
     return {'id': user.id, 'uid': user.uid, 'username': user.username, 'created_at': user.created_at,
-            'points': user.points, 'frozen_points': user.frozen_points, 'trial_remaining': user.trial_remaining,
+            'unlimited_credits': user.unlimited_credits, 'points': user.points, 'frozen_points': user.frozen_points, 'trial_remaining': user.trial_remaining,
             'frozen_trials': user.frozen_trials, 'monthly_images': monthly.filter(models.ImageLog.status == 'success').count(),
             'upstream_cost': monthly.with_entities(func.sum(models.ImageLog.upstream_cost_rmb)).scalar() or 0,
             'unknown_cost_count': monthly.filter(models.ImageLog.upstream_cost_rmb == None).count()}
@@ -151,4 +152,27 @@ def user_detail(user_id: int, db: Session = Depends(get_db), admin: models.User 
     user = db.get(models.User, user_id)
     if not user:
         raise HTTPException(404, '用户不存在')
+    return user_summary(db, user)
+
+
+class UnlimitedChange(BaseModel):
+    enabled: StrictBool
+
+
+@router.put('/users/{user_id}/unlimited')
+def set_unlimited(user_id: int, data: UnlimitedChange, db: Session = Depends(get_db), admin: models.User = Depends(admin_required)):
+    import json
+    import uuid
+    # Serialize concurrent switches and audit only actual changes in the same transaction.
+    db.query(models.User).filter_by(id=user_id).update({'id': models.User.id}, synchronize_session=False)
+    user = db.query(models.User).filter_by(id=user_id).populate_existing().first()
+    if not user:
+        raise HTTPException(404, '用户不存在')
+    before = user.unlimited_credits
+    if before != data.enabled:
+        user.unlimited_credits = data.enabled
+        recharge_crud.create_recharge_log(db, user_id=user.id, amount=0, operator_id=admin.id,
+            admin_note=json.dumps({'unlimited_credits': {'before': before, 'after': data.enabled}}),
+            trade_no='UNLIMITED_' + uuid.uuid4().hex)
+        db.commit()
     return user_summary(db, user)

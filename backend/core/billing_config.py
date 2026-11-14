@@ -7,6 +7,9 @@ DEFAULTS = {
     'NEW_USER_POINTS': '10',
     'TIER_COSTS': 'standard:5,hd:10,master:15',
     'ASSISTANT_MODE_ENABLED': 'true',
+    'API_TOKENS_ENABLED': 'true',
+    'API_TOKENS_PER_USER': '5',
+    'MCP_MAX_IMAGES_PER_CALL': '1',
 }
 TIERS = ('standard', 'hd', 'master')
 
@@ -15,9 +18,9 @@ def parse_setting(key, value):
     if key not in DEFAULTS or not isinstance(value, str):
         raise ValueError('不支持的配置项或类型')
     value = value.strip()
-    if key == 'ASSISTANT_MODE_ENABLED':
+    if key in ('ASSISTANT_MODE_ENABLED', 'API_TOKENS_ENABLED'):
         if value.lower() not in ('true', 'false'):
-            raise ValueError('助手开关只能为 true 或 false')
+            raise ValueError('开关只能为 true 或 false')
         return value.lower() == 'true'
     if key == 'TRIAL_ALLOWED_TIERS':
         tiers = [v.strip() for v in value.split(',')]

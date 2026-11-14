@@ -324,9 +324,11 @@ export default function HomePage({ switcher }) {
           >
             {submitting
               ? "提交中…"
-              : charge.trial
-                ? "免费试用"
-                : `生成 · ${charge.cost ?? "…"} 积分`}
+              : charge.unlimited
+                ? "生成 · 无限积分"
+                : charge.trial
+                  ? "免费试用"
+                  : `生成 · ${charge.cost ?? "…"} 积分`}
           </button>
           <GenerationCharge billing={billing} quality={draft.quality} />
           <p className="concurrency-note">

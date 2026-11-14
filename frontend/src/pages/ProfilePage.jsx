@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import request, { logout } from "../api/request";
 import useBilling, { creditsChanged } from "../hooks/useBilling";
+import ApiMcp from "./ApiMcp";
 import RechargeModal from "../components/RechargeModal";
 import { errorText, TIERS, SOURCES } from "../utils/creation";
 
@@ -237,6 +238,9 @@ export default function ProfilePage() {
         >
           账户与积分
         </button>
+        <button aria-pressed={tab === "api"} onClick={() => setTab("api")}>
+          API 与 MCP
+        </button>
         <button
           aria-pressed={tab === "security"}
           onClick={() => setTab("security")}
@@ -255,10 +259,12 @@ export default function ProfilePage() {
               <div>
                 <h1>可用积分</h1>
                 <strong>
-                  {Math.max(
-                    0,
-                    (user?.points || 0) - (user?.frozen_points || 0),
-                  )}
+                  {user?.unlimited_credits
+                    ? "∞ 无限积分"
+                    : Math.max(
+                        0,
+                        (user?.points || 0) - (user?.frozen_points || 0),
+                      )}
                 </strong>
                 <p>
                   免费试用剩{" "}
@@ -274,6 +280,8 @@ export default function ProfilePage() {
             </section>
             <Ledger />
           </>
+        ) : tab === "api" ? (
+          <ApiMcp />
         ) : (
           <Security user={user} refresh={billing.refresh} />
         )}
