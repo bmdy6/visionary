@@ -539,7 +539,7 @@ const RechargeModal = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 1000,
+        zIndex: 3000,
       }}
     >
       <div
