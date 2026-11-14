@@ -1,35 +1,50 @@
 # Visionary
 
-An AI image generation web app with credit accounting and an admin dashboard.
+AI image generation with credit accounting, image history, and an admin dashboard.
 
-Visionary 是一个用 React 与 FastAPI 编写的 AI 生图网站项目，包含生图、历史记录、积分和管理后台。本仓库整理了早期源码，移除了旧部署信息、个人联系方式、数据库和开发过程文件，使用全新 Git 历史。
+用 React 与 FastAPI 搭建的 AI 生图工作台，从输入灵感、查看作品到积分结算和后台管理。
 
-## 功能与代码
+## 界面预览
 
-| 功能 | 实现位置 |
-| --- | --- |
-| 文生图、参考图生图、画面比例、风格提示词与迭代字段 | [生成接口](backend/api/image.py)、[请求结构](backend/schemas/image.py)、[桌面页面](frontend/src/pages/HomePage.jsx)、[移动页面](frontend/src/pages/MobileHomePage.jsx) |
-| 后台生成与状态轮询，连接失败时有限重试 | [process_image_task / generate_image / get_task_status](backend/api/image.py)、[前端轮询](frontend/src/pages/HomePage.jsx) |
-| 提示词润色：优先 Qwen，未配置时走兼容聊天接口；每用户内存限流 | [润色逻辑](backend/core/prompt_enhance.py)、[限流入口](backend/api/image.py) |
-| 积分预冻结、成功后扣费、失败释放冻结积分，消费和充值流水 | [生成与结算](backend/api/image.py)、[数据模型](backend/models/models.py)、[流水](backend/api/user.py) |
-| JWT 登录，用户名／邮箱／手机号检索；邮件验证码注册与找回密码 | [账号接口](backend/api/auth.py)、[JWT 与 bcrypt](backend/core/security.py)、[邮件](backend/core/email.py) |
-| 图片历史、删除、下载跳转、分享海报 | [历史接口](backend/api/image.py)、[历史页面](frontend/src/pages/HistoryPage.jsx)、[海报组件](frontend/src/components/SharePosterModal.jsx) |
-| 人工充值申请与审核、管理员加分、统计面板、反馈处理 | [管理员接口](backend/api/admin.py)、[充值逻辑](backend/crud/recharge.py)、[反馈接口](backend/api/feedback.py)、[后台页面](frontend/src/pages/AdminPage.jsx) |
-| 支付订单、签名回调和状态查询适配代码 | [支付路由](backend/api/payment.py)、[签名逻辑](backend/core/payment.py)；未配置商户时不可用 |
-| 腾讯云 COS 图片存储，配置表缓存与环境变量回退 | [存储](backend/core/cos.py)、[配置](backend/core/config.py) |
-| 桌面／移动端页面与 PWA 安装引导 | [路由布局](frontend/src/App.jsx)、[安装 Hook](frontend/src/hooks/usePWA.js)、[Manifest](frontend/public/manifest.json) |
+<a href="docs/screenshots/home-generation.png"><img src="docs/screenshots/home-generation.png" alt="桌面生图工作台：生成结果与任务列表" width="640"></a>
 
-这里的功能列表描述代码能力，不代表外部服务已验收。生图是 FastAPI 进程内后台任务，不是持久化消息队列；没有已接入的全站日消费熔断或内容审核服务。详细边界见 [已知限制](docs/LIMITATIONS.md)。
+| 历史记录 | 积分与充值 | 管理后台 | 移动端 |
+| --- | --- | --- | --- |
+| [![历史作品与提示词](docs/screenshots/history.png)](docs/screenshots/history.png) | [![积分余额与充值面板](docs/screenshots/credits-recharge.png)](docs/screenshots/credits-recharge.png) | [![管理仪表盘与作品动态](docs/screenshots/admin-dashboard.png)](docs/screenshots/admin-dashboard.png) | [![移动端创作与结果](docs/screenshots/mobile-generation.png)](docs/screenshots/mobile-generation.png) |
 
-## 技术栈
+以上为本地运行截图，使用合成账号和数据；假上游返回仓库自带展示图。[截图来源与拍摄方式](docs/screenshots/SOURCES.md)。
 
-- 前端：React 19、Vite 8、React Router 7、Axios、Lucide、html2canvas、qrcode.react、CSS。版本以 [package.json](frontend/package.json) 和锁文件为准。
-- 后端：Python、FastAPI、SQLAlchemy、Pydantic、HTTPX、python-jose、bcrypt、腾讯云 COS SDK。依赖见 [requirements.txt](requirements.txt)。
-- 本地数据库：SQLite；原实现保留了 PyMySQL 依赖，但本次没有验证 MySQL，不能直接把 SQLite 的建表流程当作 MySQL 迁移方案。
+## 功能
+
+- **创作工作台**：文字生图、参考图生图、画面比例选择、风格模板与提示词润色，支持作品迭代。
+- **作品管理**：历史记录、提示词复用、图片删除、下载和分享海报。
+- **账号与积分**：JWT 登录、邮件验证码注册和找回密码；积分余额、消费与充值明细、人工充值报备。
+- **管理后台**：充值审核、手动加分、作品与积分统计、反馈处理。
+- **桌面与移动端**：分别适配的工作台布局，附 PWA 安装引导。
+
+## 值得看的设计
+
+### 积分先冻结，成功扣费，失败释放
+
+提交任务时，用条件 UPDATE 检查 `points - frozen_points`，再冻结本次额度；图片生成并存储成功后扣除余额，失败则释放冻结额度。预占与最终扣费分开，失败任务不扣减用户余额。对应的消费和充值记录可在积分明细中查看。
+
+实现：[生成与结算](backend/api/image.py)、[积分字段](backend/models/models.py)、[明细接口](backend/api/user.py)。
+
+### 后台生成，前端轮询状态
+
+生成接口先创建 `pending` 记录并返回任务 ID，再由 FastAPI 后台任务完成提示词包装、上游请求与图片转存。前端按 ID 轮询 `pending / generating / success / failed` 状态，将等待过程和生成结果展示在任务卡片中；后端同时记录 API、存储与总耗时。
+
+实现：[任务处理与状态查询](backend/api/image.py)、[桌面轮询](frontend/src/pages/HomePage.jsx)、[移动轮询](frontend/src/pages/MobileHomePage.jsx)。
+
+### 上游与存储配置独立于页面
+
+生图 API 地址、密钥与腾讯云 COS 的凭据、桶和地域通过配置读取。配置表优先，缺项回退环境变量，并缓存 60 秒；提示词润色优先使用 Qwen，也可使用兼容聊天接口。COS 上传集中在存储模块，同步 SDK 调用放在线程池中执行。
+
+实现：[配置读取](backend/core/config.py)、[提示词润色](backend/core/prompt_enhance.py)、[COS 适配](backend/core/cos.py)。更多调用关系见 [架构说明](docs/ARCHITECTURE.md)。
 
 ## 本地运行
 
-本轮在 Python 3.14.3、Node.js 20.19.2、npm 10.8.2 下完成安装、后端离线验证与前端构建。建议用独立虚拟环境；Node 版本须满足 Vite 的要求。
+准备 Python 3.10+、Node.js 22（22.13+）或 24+ 和 npm。数据库默认使用 SQLite。
 
 ```bash
 git clone https://github.com/bmdy6/visionary.git
@@ -41,58 +56,51 @@ cp .env.example .env
 python -c 'import secrets; print(secrets.token_urlsafe(48))'
 ```
 
-把生成的随机串填入 `.env` 的 `SECRET_KEY`。保留示例里的本地 SQLite 地址即可，外部服务字段先留空。项目没有预置用户、默认管理员密码或真实积分记录。
+将输出的随机串填入 `.env` 的 `SECRET_KEY`，保留 SQLite 的 `DATABASE_URL`。外部服务字段可先留空，使用本地账号体验工作台与后台。
 
 ```bash
-# 初始化空表；可选创建一个本地管理员，密码交互输入
+# 创建空表和本地管理员，按提示设置密码
 python -m scripts.init_db --admin local-admin
-# 在当前终端启动后端
+# 启动后端
 python -m uvicorn api.index:app --host 127.0.0.1 --port 8000
 ```
 
-另开终端运行前端：
+管理员初始有 100 个演示积分。另开终端，从仓库根目录启动前端：
 
 ```bash
-cd visionary/frontend
+cd frontend
 npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-打开 `http://127.0.0.1:5173`，使用自己创建的管理员账号登录；接口文档在 `http://127.0.0.1:8000/docs`，健康检查为 `/api/health`。Vite 把 `/api` 代理到本地后端。管理员有 100 个本地演示积分，用于查看界面和离线开发，不代表付款。
+访问 <http://127.0.0.1:5173>，使用 `local-admin` 和刚设置的密码登录。API 文档位于 <http://127.0.0.1:8000/docs>；开发服务器将 `/api` 代理到后端。
+
+连接自己的生图服务时，配置 `OPENAI_BASE_URL`、`OPENAI_API_KEY` 及 `TENCENT_CLOUD_*` 存储字段。请求格式见 [生成接口](backend/api/image.py)：模型字符串为 `gpt-image-2`，文生图调用 `/images/generations`，参考图调用 `/images/edits` 并传入 JSON `images` 数组。邮件验证码需要填写 SMTP 配置，字段见 [.env.example](.env.example)。
+
+前端生产构建（在 `frontend/` 中执行）：
 
 ```bash
-# 仅检查后端加载（需要先配置 .env）
-python -c 'from api.index import app; print(app.title)'
-# 前端生产构建
-cd frontend
-npm ci && npm run build
+npm run build
 ```
 
-真实生图需要配置自己的 `OPENAI_API_KEY`、兼容 API 地址及 COS 凭据。当前代码发送模型字符串 `gpt-image-2`，调用 `/images/generations`；参考图走 `/images/edits` 的 JSON `images` 数组，均使用 `quality: low`。这是源码约定的请求格式，不等同于所有上游服务都兼容，也不把 DALL-E 3 与该模型名称混用。画质档位主要影响计费、提示词和迭代限制，不应据此推断上游实际画质档位。见 [请求构造](backend/api/image.py)。
+## 技术栈
 
-邮件功能需要 SMTP；支付适配需要自备商户配置和可达回调地址；示例地址仅为占位。本地浏览、管理员登录和后台查看不要求这些外部服务。不要在未评估 [已知限制](docs/LIMITATIONS.md) 前接入真实支付或直接对外提供服务。
+| 部分 | 技术 |
+| --- | --- |
+| 前端 | React 19、Vite 8、React Router 7、Axios、Lucide、CSS |
+| 图片与分享 | html2canvas、qrcode.react |
+| 后端 | FastAPI、SQLAlchemy、Pydantic、HTTPX |
+| 认证与存储 | python-jose、bcrypt、腾讯云 COS SDK |
+| 本地数据库 | SQLite |
 
-## 示例素材
+依赖见 [前端清单](frontend/package.json) 和 [Python 清单](requirements.txt)。代码采用 [MIT License](LICENSE)。
 
-下图来自原仓库 `showcase/`，仅为展示素材，并非本轮生成结果或网站截图。已目视检查，没有发现手机号、个人账号或二维码。来源和权利边界见 [限制说明](docs/LIMITATIONS.md)。
+## 已知限制
 
-![旅行手账示例](showcase/travel_journal.png)
+- 后台任务在 Web 进程内运行；持久化队列、重启恢复及积分结算与重置的并发约束仍待完善。
+- 对外开放前需加固接口归属、图片代理和账号验证；支付适配的回调金额校验也需完善。
+- 上游有特定请求格式要求；界面档位影响计费和提示词，但发送给上游的 `quality` 均为 `low`。
+- 外部生图、COS、邮件、支付、MySQL 和 PWA 真机体验需要在各自环境验收；依赖仍有开发工具告警。
+- 历史展示素材的权利来源需单独确认，代码的 MIT 许可不覆盖第三方图像权利。
 
-## 目录
-
-```text
-api/                 FastAPI 应用入口
-backend/api/         账号、生图、积分、支付、后台、反馈
-backend/core/        配置、认证、邮件、提示词和 COS
-backend/models/      SQLAlchemy 表结构
-backend/crud/        数据访问
-backend/schemas/     请求与响应模型
-frontend/            React 页面与静态素材
-scripts/init_db.py   空白本地数据库与可选管理员初始化
-docs/                架构与已知限制
-showcase/            审查后的原仓库示例图
-```
-
-## 许可
-
-代码采用 [MIT License](LICENSE)，Copyright (c) 2026 bmdy6。第三方依赖遵循各自许可证；示例图片不构成其中品牌、人物或作品的权利授权。
+详见 [完整限制与验证范围](docs/LIMITATIONS.md)。
