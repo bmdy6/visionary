@@ -43,3 +43,14 @@ def get_optional_current_user(db: Session = Depends(get_db), token: str = Depend
         return user_crud.get_user_by_username(db, username=username)
     except:
         return None
+
+
+def get_generation_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+    """Explicit allowlist dependency: JWT-only endpoints never accept a personal token."""
+    if not token.startswith('vsn_'):
+        return get_current_user(db, token)
+    from .billing_config import setting
+    from .api_tokens import authenticate
+    if not setting('API_TOKENS_ENABLED'):
+        raise HTTPException(403, 'API 与 MCP 已关闭')
+    return authenticate(db, token)

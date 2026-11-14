@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # 显式加载 .env（仅限本地开发）
 load_dotenv()
 
-from backend.api import auth, image, admin, user, payment, assistant
+from backend.api import auth, image, admin, user, payment, assistant, api_tokens
 from backend.core.storage import local_path
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
@@ -68,6 +68,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(api_tokens.router, prefix="/api")
 app.include_router(assistant.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(image.router, prefix="/api")

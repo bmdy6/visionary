@@ -964,3 +964,106 @@ input.credits-toggle {
   padding: 0;
   border: 0;
 }
+
+/* API tokens and MCP use the existing profile panel and color tokens. */
+.api-mcp-page > h1 {
+  margin-top: 0;
+}
+.api-token-panel,
+.mcp-connect {
+  padding: 24px;
+  margin-top: 20px;
+}
+.api-token-panel h2,
+.mcp-connect h2 {
+  font-size: 16px;
+  margin: 0 0 16px;
+}
+.api-token-create {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.api-token-create input {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+}
+.api-token-panel table {
+  width: 100%;
+  white-space: nowrap;
+}
+.api-token-panel td:first-child {
+  max-width: 180px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.api-token-panel code {
+  font-size: 12px;
+}
+.token-notice,
+.token-once {
+  padding: 12px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: var(--bg-main);
+  font-size: 13px;
+  margin-top: 16px;
+}
+.token-once code {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  margin: 12px 0;
+}
+.token-once button {
+  margin-right: 12px;
+}
+.mcp-connect pre {
+  background: var(--text-main);
+  color: var(--bg-card);
+  padding: 20px;
+  border-radius: 12px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.mcp-tools {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.mcp-tools small {
+  display: block;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+@media (max-width: 600px) {
+  .api-token-panel,
+  .mcp-connect {
+    padding: 16px;
+  }
+  .api-token-create {
+    flex-wrap: wrap;
+  }
+  .api-token-create input {
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .mcp-tools {
+    gap: 16px;
+  }
+}
+.api-token-panel table {
+  min-width: 680px;
+}
+.api-token-panel td:first-child {
+  min-width: 120px;
+  font-weight: 600;
+}
+.api-token-panel td button {
+  color: var(--primary);
+  background: transparent;
+  border: 0;
+}

@@ -17,7 +17,7 @@ from backend.core.billing_config import setting, public_billing
 import json
 from backend.core.storage import store_url, store_base64, provider_reference, local_path, LOCAL_URL_PREFIX, get_storage_backend
 from backend.core.image_provider import get_image_provider, demo_image
-from backend.core.deps import get_current_user
+from backend.core.deps import get_current_user, get_generation_user
 from backend.core.prompt_enhance import enhance_prompt
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -375,7 +375,12 @@ async def enhance_prompt_endpoint(
         raise HTTPException(status_code=500, detail=f"AI 优化失败: {str(e)[:100]}")
 
 @router.post("/generate")
-async def generate_image(payload: image_schema.ImageCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def generate_image(payload: image_schema.ImageCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_generation_user)):
+    token_id = getattr(current_user, "_api_token_id", None)
+    if token_id and (payload.plan_id is not None or payload.plan_version is not None):
+        raise HTTPException(403, "API Token 不可使用助手方案")
+    if token_id and setting("MCP_MAX_IMAGES_PER_CALL") < 1:
+        raise HTTPException(403, "MCP 生成已关闭")
     plan = None
     if payload.plan_id is not None or payload.plan_version is not None:
         from backend.api.assistant import require_enabled, owned
@@ -413,25 +418,31 @@ async def generate_image(payload: image_schema.ImageCreate, background_tasks: Ba
                 raise HTTPException(403, f"该种子图的迭代变体已达上限 ({max_refines}次)")
 
         trial_used = False
-        if payload.quality in setting('TRIAL_ALLOWED_TIERS'):
+        unlimited = current_user.unlimited_credits
+        if not unlimited and payload.quality in setting('TRIAL_ALLOWED_TIERS'):
             trial_used = bool(db.query(models.User).filter(
                 models.User.id == current_user.id,
                 models.User.trial_remaining - models.User.frozen_trials > 0
             ).update({'frozen_trials':models.User.frozen_trials + 1}, synchronize_session=False))
-        cost = 0 if trial_used else pricing[payload.quality]
-        if not trial_used:
+        cost = 0 if trial_used or unlimited else pricing[payload.quality]
+        if not trial_used and not unlimited:
             reserved = db.query(models.User).filter(
                 models.User.id == current_user.id,
                 models.User.points - models.User.frozen_points >= cost
             ).update({'frozen_points':models.User.frozen_points + cost}, synchronize_session=False)
             if not reserved:
-                raise HTTPException(403, "余额不足")
+                if not token_id:
+                    raise HTTPException(403, "余额不足")
+                db.refresh(current_user)
+                raise HTTPException(403, {"code": "insufficient_credits", "balance": max(0, current_user.points - current_user.frozen_points),
+                    "trial_remaining": max(0, current_user.trial_remaining - current_user.frozen_trials),
+                    "required": cost, "recharge_url": "/profile"})
 
         pending_log = image_crud.create_image_log(
             db, user_id=current_user.id, prompt=payload.prompt, quality=payload.quality,
             style=payload.style, cost_points=cost, status="pending", ref_image_url=payload.ref_image_url,
             parent_id=payload.parent_id, root_id=payload.root_id, iteration=payload.iteration,
-            trial_used=trial_used, source='assistant' if plan else 'normal', aspect_ratio=payload.aspect_ratio, commit=False)
+            trial_used=trial_used, source='mcp' if token_id else ('assistant' if plan else 'normal'), aspect_ratio=payload.aspect_ratio, commit=False)
         if plan:
             plan.task_id = pending_log.id
         db.commit()
@@ -445,7 +456,7 @@ async def generate_image(payload: image_schema.ImageCreate, background_tasks: Ba
             "iteration":payload.iteration}
 
 @router.get("/status/{id}")
-async def get_task_status(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def get_task_status(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_generation_user)):
     log = db.query(models.ImageLog).filter(models.ImageLog.id == id, models.ImageLog.user_id == current_user.id, models.ImageLog.deleted_at == None).first()
     if not log:
         raise HTTPException(404, "任务不存在")
@@ -515,3 +526,16 @@ async def reset_tasks(db: Session = Depends(get_db), current_user: models.User =
     """手动清理用户的挂起任务锁并同步积分状态"""
     image_crud.reset_active_tasks(db, current_user.id)
     return {"message": "ok"}
+
+
+@router.get("/balance")
+def get_balance(current_user: models.User = Depends(get_generation_user)):
+    return {"balance": max(0, current_user.points - current_user.frozen_points),
+            "trial_remaining": max(0, current_user.trial_remaining - current_user.frozen_trials),
+            "unlimited_credits": current_user.unlimited_credits, "recharge_url": "/profile"}
+
+
+@router.get("/styles")
+def list_styles(current_user: models.User = Depends(get_generation_user)):
+    return {"styles": list(STYLE_PROMPT_TEMPLATES), **public_billing(),
+            "mcp_max_images_per_call": setting('MCP_MAX_IMAGES_PER_CALL')}

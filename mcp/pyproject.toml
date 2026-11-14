@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling>=1.25,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "visionary-mcp"
+version = "0.1.0"
+description = "Use a Visionary account through MCP over HTTP."
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.12,<2", "httpx>=0.27,<1"]
+
+[project.scripts]
+visionary-mcp = "visionary_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/visionary_mcp"]
