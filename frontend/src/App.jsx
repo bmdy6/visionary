@@ -17,6 +17,7 @@ import MobileLayout from './components/MobileLayout';
 import PCLayout from './components/PCLayout';
 import MaintenanceModal from './components/MaintenanceModal';
 import AnnouncementModal from './components/AnnouncementModal';
+import DemoNotice from './components/DemoNotice';
 import './App.css';
 
 function App() {
@@ -57,7 +58,8 @@ function App() {
   }
 
   const renderWithLayout = (element) => {
-    return isMobile ? <MobileLayout>{element}</MobileLayout> : <PCLayout>{element}</PCLayout>;
+    const content = <><DemoNotice />{element}</>;
+    return isMobile ? <MobileLayout>{content}</MobileLayout> : <PCLayout>{content}</PCLayout>;
   };
 
   return (

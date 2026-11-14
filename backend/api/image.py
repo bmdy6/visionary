@@ -5,7 +5,7 @@ import httpx
 import asyncio
 import re
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from sqlalchemy.orm import Session
 
 from backend.models.database import get_db, session_scope
@@ -14,7 +14,8 @@ from backend.schemas import image as image_schema
 from backend.crud import image as image_crud
 from backend.crud import recharge as recharge_crud
 from backend.core.config import get_config
-from backend.core.cos import upload_url_to_cos, upload_base64_to_cos
+from backend.core.storage import store_url, store_base64, provider_reference, local_path, LOCAL_URL_PREFIX, get_storage_backend
+from backend.core.image_provider import get_image_provider, demo_image
 from backend.core.deps import get_current_user
 from backend.core.prompt_enhance import enhance_prompt
 from starlette.concurrency import run_in_threadpool
@@ -26,6 +27,14 @@ router = APIRouter(prefix="/image", tags=["image"])
 @router.get("/proxy")
 async def proxy_image(url: str):
     """代理获取图片以绕过前端 CORS 限制"""
+    if url.startswith(LOCAL_URL_PREFIX):
+        try:
+            path = local_path(url[len(LOCAL_URL_PREFIX):])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="图片不存在")
+        return FileResponse(path)
     import httpx
     from fastapi.responses import Response
     async with httpx.AsyncClient() as client:
@@ -169,13 +178,16 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
             user = db.query(models.User).filter(models.User.id == user_id).first()
             username = user.username or f"uid_{user_id}"
 
+        provider = get_image_provider()
+        get_storage_backend()  # Reject invalid explicit storage before a paid request.
+
         # 1. 参考图转存
         processed_ref_url = ref_image_url
         if ref_image_url and (ref_image_url.startswith("data:image") or len(ref_image_url) > 1000):
             try:
                 safe_username = "".join([c for c in username if c.isalnum() or c in ("_", "-")])
                 ref_filename = f"user_{safe_username}_ref_{uuid.uuid4().hex[:6]}.png"
-                processed_ref_url = await run_in_threadpool(upload_base64_to_cos, ref_image_url, ref_filename)
+                processed_ref_url = await run_in_threadpool(store_base64, ref_image_url, ref_filename)
             except Exception as e:
                 raise Exception(f"参考图上传失败: {str(e)}")
 
@@ -190,8 +202,12 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
                 log.status = "generating"
                 if hasattr(log, "final_prompt"): log.final_prompt = prompt_to_send
 
-        # 3. API 调用 (GPT-Image-2 专用 Vision-JSON 协议)
-        for attempt in range(3):
+        # 3. 演示结果也经过同一个存储与结算流程。
+        if provider == "demo":
+            final_url, success = demo_image(), True
+
+        # 真实上游保留原请求格式与重试行为。
+        for attempt in range(0 if provider == "demo" else 3):
             try:
                 async with httpx.AsyncClient(timeout=180.0) as client:
                     # 终极实锤协议：/v1/images/edits + JSON
@@ -207,7 +223,7 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
                     # 图生图模式切换 (Verified Protocol)
                     if processed_ref_url:
                         api_path = "/images/edits"
-                        payload["images"] = [{"image_url": processed_ref_url}]
+                        payload["images"] = [{"image_url": provider_reference(processed_ref_url)}]
 
                     # 分辨率强制合规
                     if aspect_ratio == "9:16": payload["size"] = "1024x1536"
@@ -228,7 +244,9 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
                     res_json = resp.json()
                     data_list = res_json.get("data", [])
                     if data_list:
-                        final_url = data_list[0].get("url") or data_list[0].get("b64_json")
+                        final_url = data_list[0].get("url")
+                        if not final_url and data_list[0].get("b64_json"):
+                            final_url = "data:image/png;base64," + data_list[0]["b64_json"]
                     elif res_json.get("images"):
                         final_url = res_json["images"][0]
 
@@ -246,17 +264,18 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
 
         if not success: raise Exception("未获取到有效图片链接")
 
-        # 4. 结果转存 COS
+        # 4. 结果转存（COS 或本地）
         store_start = time.time()
         safe_prompt = "".join([c for c in prompt[:10] if c.isalnum()]).strip() or "image"
         cost_rmb = COST_RMB.get(quality, 0)
-        filename = f"user_{username}_{safe_prompt}_{cost_rmb}元_{uuid.uuid4().hex[:6]}.png"
+        safe_username = "".join(c for c in username if c.isalnum() or c in ("_", "-"))
+        filename = f"user_{safe_username}_{safe_prompt}_{cost_rmb}元_{uuid.uuid4().hex[:6]}.png"
 
         # 智能选择上传方式 (Task: Base64 Support)
         if final_url.startswith("data:image") or len(final_url) > 2048:
-            final_cos_url = await run_in_threadpool(upload_base64_to_cos, final_url, filename)
+            final_cos_url = await run_in_threadpool(store_base64, final_url, filename)
         else:
-            final_cos_url = await run_in_threadpool(upload_url_to_cos, final_url, filename)
+            final_cos_url = await run_in_threadpool(store_url, final_url, filename)
 
         store_ms = int((time.time() - store_start) * 1000)
 
@@ -307,7 +326,10 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
                 if processed_ref_url:
                     print(f"Ref-Image URL: {processed_ref_url}")
                 print(f"Final Sent Prompt: {final_api_prompt[:200]}...")
-                print(f"Revenue: {cost/10:.2f} RMB | Cost: {cost_rmb:.2f} RMB | Profit: +{(cost/10)-cost_rmb:.2f} RMB")
+                if provider == "demo":
+                    print("Demo: bundled sample; no external image API call.")
+                else:
+                    print(f"Revenue: {cost/10:.2f} RMB | Cost: {cost_rmb:.2f} RMB | Profit: +{(cost/10)-cost_rmb:.2f} RMB")
                 print(f"Total Time: {log.total_duration/1000:.2f}s (API: {api_ms/1000:.2f}s, Store: {store_ms/1000:.2f}s)")
                 print("="*50 + "\n")
 
@@ -324,7 +346,7 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
 
 @router.get("/config")
 async def get_config_info():
-    return {"pricing": PRICING, "tiers": TIER_CONFIG}
+    return {"pricing": PRICING, "tiers": TIER_CONFIG, "demo_mode": get_image_provider() == "demo"}
 
 @router.get("/download")
 async def download_image(id: int, db: Session = Depends(get_db)):
