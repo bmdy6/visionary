@@ -113,6 +113,7 @@ class AssistantTrialTest(unittest.TestCase):
             self.assertEqual(log.source, 'assistant')
             self.assertEqual(log.prompt, '浅色背景的向日葵贺卡')
             self.assertEqual(log.quality, 'standard')
+            self.assertEqual(log.aspect_ratio, '9:16')
             self.assertEqual(db.get(models.User, 1).points, 5)
         self.assertEqual(self.client.get(path, headers=self.headers).json()['plan']['task_id'], a.json()['id'])
 

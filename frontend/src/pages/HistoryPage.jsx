@@ -90,6 +90,7 @@ const HistoryPage = ({ isMobile }) => {
       prompt: img.prompt,
       style: img.style,
       quality: img.quality,
+      aspect_ratio: img.aspect_ratio,
       ref_image_url: img.ref_image_url
     }));
     navigate('/');
@@ -106,6 +107,7 @@ const HistoryPage = ({ isMobile }) => {
       prompt: img.prompt,
       style: img.style,
       quality: img.quality,
+      aspect_ratio: img.aspect_ratio,
       ref_image_url: img.image_url, // 注意：微调是基于生成后的图片
       parent_id: img.id,
       root_id: img.root_id || img.id, // 传递根 ID

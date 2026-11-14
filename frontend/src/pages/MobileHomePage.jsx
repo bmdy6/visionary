@@ -271,6 +271,7 @@ const MobileHomePage = () => {
         });
       }
       if (data.quality) setQuality(data.quality);
+      if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
       if (data.ref_image_url) setRefImageUrl(data.ref_image_url);
 
       // 捕获精修状态
