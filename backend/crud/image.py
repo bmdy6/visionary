@@ -43,10 +43,12 @@ def create_image_log(
         db.flush()
     return db_log
 
-def get_user_image_logs(db: Session, user_id: int, skip: int = 0, limit: int = 10, keyword: str = None):
+def get_user_image_logs(db: Session, user_id: int, skip: int = 0, limit: int = 10, keyword: str = None, source: str = None):
     query = db.query(models.ImageLog).filter(
-        models.ImageLog.user_id == user_id
+        models.ImageLog.user_id == user_id, models.ImageLog.deleted_at == None
     )
+    if source:
+        query = query.filter(models.ImageLog.source == source)
     if keyword:
         query = query.filter(models.ImageLog.prompt.ilike(f"%{keyword}%"))
 

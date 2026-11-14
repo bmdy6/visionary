@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 # 显式加载 .env（仅限本地开发）
 load_dotenv()
 
-from backend.api import auth, image, admin, user, feedback, payment, assistant
+from backend.api import auth, image, admin, user, payment, assistant
 from backend.core.storage import local_path
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
@@ -73,7 +73,6 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(image.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(user.router, prefix="/api")
-app.include_router(feedback.router, prefix="/api")
 app.include_router(payment.router, prefix="/api")
 
 from sqlalchemy import text

@@ -26,6 +26,8 @@ def recharge_points(
     db: Session = Depends(get_db),
     admin: models.User = Depends(admin_required)
 ):
+    if amount < 1 or amount > 1000000:
+        raise HTTPException(422, "积分必须为 1–1000000 的整数")
     # 1. 查找目标用户
     user = user_crud.get_user_by_username(db, username=target_username)
     if not user:
@@ -64,103 +66,6 @@ def audit_recharge_request(
         admin_note=data.admin_note
     )
 
-@router.get("/dashboard/stats")
-def get_dashboard_stats(
-    db: Session = Depends(get_db),
-    admin: models.User = Depends(admin_required)
-):
-    """获取管理后台仪表盘综合统计数据 (Task 3.1)"""
-    # 1. 基础统计
-    total_users = db.query(models.User).count()
-    total_images = db.query(models.ImageLog).filter(models.ImageLog.status == "success").count()
-
-    # 2. 财务统计 (充值流水)
-    total_revenue = db.query(func.sum(models.RechargeLog.money_amount)).filter(models.RechargeLog.status == "success").scalar() or 0
-
-    # 3. 积分消耗统计
-    total_points_spent = db.query(func.sum(models.ImageLog.cost_points)).filter(models.ImageLog.status == "success").scalar() or 0
-
-    # 4. 风格排行统计 (Task 3.2)
-    style_stats = db.query(
-        models.ImageLog.style,
-        func.count(models.ImageLog.id)
-    ).filter(models.ImageLog.status == "success").group_by(models.ImageLog.style).order_by(func.count(models.ImageLog.id).desc()).all()
-
-    # 5. 最近全站动态 (实时流)
-    recent_logs = db.query(models.ImageLog).order_by(models.ImageLog.created_at.desc()).limit(20).all()
-
-    return {
-        "summary": {
-            "total_users": total_users,
-            "total_images": total_images,
-            "total_revenue": total_revenue,
-            "total_points_spent": total_points_spent
-        },
-        "styles": [{"id": s[0], "count": s[1]} for s in style_stats],
-        "recent_logs": [
-            {
-                "id": l.id,
-                "user_id": l.user_id,
-                "prompt": l.prompt,
-                "status": l.status,
-                "image_url": l.image_url,
-                "created_at": l.created_at,
-                "style": l.style
-            } for l in recent_logs
-        ]
-    }
-
-@router.delete("/image/{log_id}/wipe")
-def wipe_image_record(
-    log_id: int,
-    db: Session = Depends(get_db),
-    admin: models.User = Depends(admin_required)
-):
-    """违规内容彻底抹除 (Task 3.3)"""
-    log = db.query(models.ImageLog).filter(models.ImageLog.id == log_id).first()
-    if not log:
-        raise HTTPException(status_code=404, detail="记录不存在")
-
-    # 1. 删除 COS 文件
-    if log.image_url:
-        try:
-            delete_from_cos(log.image_url)
-        except:
-            pass # 即使删除文件失败也继续删除记录
-
-    # 2. 删除数据库记录
-    db.delete(log)
-    db.commit()
-    return {"message": "已彻底抹除记录及图片文件"}
-
-@router.get("/invitation/logs")
-def list_invitation_logs(
-    db: Session = Depends(get_db),
-    admin: models.User = Depends(admin_required)
-):
-    """邀请奖励审计日志 (Task 6.1)"""
-    # 获取所有邀请相关的充值日志
-    logs = db.query(models.RechargeLog, models.User).join(
-        models.User, models.RechargeLog.user_id == models.User.id
-    ).filter(
-        models.RechargeLog.trade_no.like("INVITE_%")
-    ).order_by(models.RechargeLog.created_at.desc()).limit(100).all()
-
-    return [
-        {
-            "id": l[0].id,
-            "user_id": l[0].user_id,
-            "username": l[1].username,
-            "amount": l[0].amount,
-            "trade_no": l[0].trade_no,
-            "admin_note": l[0].admin_note,
-            "created_at": l[0].created_at,
-            "ip": l[1].last_ip,
-            "fingerprint": l[1].fingerprint
-        } for l in logs
-    ]
-
-
 @router.get('/settings/credits')
 def credit_settings(admin: models.User = Depends(admin_required)):
     from ..core.billing_config import DEFAULTS, setting
@@ -193,3 +98,57 @@ def update_credit_settings(values: dict[str, str], db: Session = Depends(get_db)
     db.commit()
     invalidate_config_cache()
     return credit_settings(admin)
+
+
+def month_start():
+    from datetime import datetime, timezone, timedelta
+    return datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+@router.get('/dashboard/stats')
+def dashboard_stats(db: Session = Depends(get_db), admin: models.User = Depends(admin_required)):
+    month = month_start()
+    monthly = db.query(models.ImageLog).filter(models.ImageLog.created_at >= month)
+    successful = monthly.filter(models.ImageLog.status == 'success')
+    recent = db.query(models.ImageLog, models.User.username).join(models.User).order_by(models.ImageLog.created_at.desc(), models.ImageLog.id.desc()).limit(50).all()
+    return {
+        'summary': {
+            'total_users': db.query(models.User).count(),
+            'new_users': db.query(models.User).filter(models.User.created_at >= month).count(),
+            'monthly_images': successful.count(),
+            'sources': {s: successful.filter(models.ImageLog.source == s).count() for s in ('normal', 'assistant', 'mcp')},
+            'monthly_revenue': db.query(func.sum(models.RechargeLog.money_amount)).filter(models.RechargeLog.status == 'success', models.RechargeLog.created_at >= month).scalar() or 0,
+            'pending_recharges': len(recharge_crud.get_pending_recharges(db)),
+            'upstream_cost': monthly.with_entities(func.sum(models.ImageLog.upstream_cost_rmb)).scalar() or 0,
+            'unknown_cost_count': monthly.filter(models.ImageLog.upstream_cost_rmb == None).count(),
+        },
+        'recent_logs': [{'id': l.id, 'username': username, 'prompt': l.prompt, 'source': l.source,
+                         'quality': l.quality, 'status': l.status, 'cost_points': l.cost_points,
+                         'trial_used': l.trial_used, 'created_at': l.created_at} for l, username in recent]
+    }
+
+
+def user_summary(db, user):
+    monthly = db.query(models.ImageLog).filter(models.ImageLog.user_id == user.id, models.ImageLog.created_at >= month_start())
+    return {'id': user.id, 'uid': user.uid, 'username': user.username, 'created_at': user.created_at,
+            'points': user.points, 'frozen_points': user.frozen_points, 'trial_remaining': user.trial_remaining,
+            'frozen_trials': user.frozen_trials, 'monthly_images': monthly.filter(models.ImageLog.status == 'success').count(),
+            'upstream_cost': monthly.with_entities(func.sum(models.ImageLog.upstream_cost_rmb)).scalar() or 0,
+            'unknown_cost_count': monthly.filter(models.ImageLog.upstream_cost_rmb == None).count()}
+
+
+@router.get('/users')
+def list_users(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), admin: models.User = Depends(admin_required)):
+    from fastapi import HTTPException
+    if skip < 0 or not 1 <= limit <= 100:
+        raise HTTPException(422, '分页参数无效')
+    users = db.query(models.User).order_by(models.User.id.desc()).offset(skip).limit(limit).all()
+    return [user_summary(db, u) for u in users]
+
+
+@router.get('/users/{user_id}')
+def user_detail(user_id: int, db: Session = Depends(get_db), admin: models.User = Depends(admin_required)):
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(404, '用户不存在')
+    return user_summary(db, user)

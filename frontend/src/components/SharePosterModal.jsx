@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Download, Share2, Palette, Sparkles, Layout, Camera } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Sparkles, Layout, Camera } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import request from '../api/request';
+import useDialog from '../hooks/useDialog';
 
-const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
+const SharePosterModal = ({ imageLog, onClose }) => {
+  const dialog = useDialog(onClose);
   const [activeTemplate, setActiveTemplate] = useState('minimal');
   const [generating, setGenerating] = useState(false);
   const [posterImage, setPosterImage] = useState(null);
@@ -16,7 +18,7 @@ const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
     { id: 'vintage', name: '复古画框', icon: <Camera size={16} /> },
   ];
 
-  const inviteUrl = `${window.location.origin}/register?invite=${userInfo?.uid}`;
+  const siteUrl = `${window.location.origin}/`;
 
   const [localImageUrl, setLocalImageUrl] = useState(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -88,7 +90,7 @@ const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
   }, [activeTemplate, loadingImage, localImageUrl]);
 
   return (
-    <div
+    <div ref={dialog} role="dialog" aria-modal="true" aria-label="分享作品"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 10000,
@@ -103,7 +105,7 @@ const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
         style={{ width: '100%', maxWidth: '400px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}
       >
         <h3 style={{ color: 'white', margin: 0, fontSize: '18px', fontWeight: '800' }}>分享作品</h3>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '8px', borderRadius: '50%' }}>
+        <button aria-label="关闭海报" onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '8px', borderRadius: '50%' }}>
           <X size={20} />
         </button>
       </div>
@@ -186,8 +188,8 @@ const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
                 fontSize: '15px', fontWeight: '800', lineHeight: '1.4',
                 ...getTextStyle(activeTemplate)
               }}>
-                扫描左侧二维码 <br/>
-                扫码注册，开启创作
+                扫描二维码 <br/>
+                进入 Visionary，开启创作
               </div>
             </div>
 
@@ -195,7 +197,7 @@ const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
               padding: '6px', background: 'white', borderRadius: '12px',
               boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
             }}>
-              <QRCodeCanvas value={inviteUrl} size={64} level="H" />
+              <QRCodeCanvas value={siteUrl} size={64} level="H" />
             </div>
           </div>
 

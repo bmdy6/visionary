@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, KeyRound, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useForgotPasswordController } from '../controllers/useForgotPasswordController';
-import NeuralPlexus from '../components/NeuralPlexus';
 
 const ForgotPasswordPage = () => {
   const {
@@ -12,7 +11,6 @@ const ForgotPasswordPage = () => {
     confirmPassword, setConfirmPassword,
     error, success,
     loading, countdown,
-    codeSent,
     handleSendCode,
     handleReset
   } = useForgotPasswordController();
@@ -22,7 +20,6 @@ const ForgotPasswordPage = () => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'transparent', position: 'relative' }}>
-      <NeuralPlexus />
       <div id="pc-main-stage" className="card" style={{
         padding: '40px', width: '420px', textAlign: 'center',
         background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(20px)',

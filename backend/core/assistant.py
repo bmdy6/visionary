@@ -38,7 +38,7 @@ def demo_reply(messages, current):
         if re.search(words, users[-1]):
             ratio = value
     data = {**(current or {}), 'prompt': text, 'aspect_ratio': ratio}
-    return AgentReply(reply='方案已更新，请检查右侧方案卡；确认前不会生成或扣费。', plan=PlanData(**data))
+    return AgentReply(reply='方案已更新，确认前不会生成或扣费。', plan=PlanData(**data))
 
 
 async def discuss(messages, current, has_reference):

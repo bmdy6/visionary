@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import request from '../api/request';
-import NeuralPlexus from '../components/NeuralPlexus';
 import Captcha from '../components/Captcha';
 import { useCallback } from 'react';
 
@@ -14,7 +13,6 @@ const RegisterPage = () => {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [captchaValid, setCaptchaValid] = useState(false);
   const [error, setError] = useState('');
@@ -25,11 +23,6 @@ const RegisterPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 解析邀请码
-    const params = new URLSearchParams(window.location.search);
-    const invite = params.get('invite');
-    if (invite) setInviteCode(invite);
-
     let timer;
     if (countdown > 0) {
       timer = setInterval(() => {
@@ -77,11 +70,11 @@ const RegisterPage = () => {
         let resp;
         if (regMode === 'email') {
           resp = await request.post('/auth/register', {
-            username, email, password, code, fingerprint, invite_code: inviteCode
+            username, email, password, code, fingerprint
           });
         } else {
           resp = await request.post('/auth/register-phone', {
-            username, phone, password, captcha_code: 'bypass', fingerprint, invite_code: inviteCode
+            username, phone, password, captcha_code: 'bypass', fingerprint
           });
         }
 
@@ -106,7 +99,6 @@ const RegisterPage = () => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'transparent', position: 'relative' }}>
-      <NeuralPlexus />
       <div id="pc-main-stage" className="card" style={{
         padding: '30px 24px', width: '90%', maxWidth: '420px', textAlign: 'center',
         background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(20px)',
@@ -208,18 +200,7 @@ const RegisterPage = () => {
             style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ddd', outline: 'none' }}
           />
 
-          <div style={{ textAlign: 'left' }}>
-            <input
-              type="text"
-              placeholder="邀请码 (选填)"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
-              style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ddd', outline: 'none', width: '100%', boxSizing: 'border-box' }}
-            />
-            <p style={{ fontSize: '12px', color: '#e66b33', marginTop: '6px', marginLeft: '4px' }}>
-              💡 填写邀请码注册，额外赠送 {registrationConfig?.invite_reward_points ?? "…"} 积分奖励
-            </p>
-          </div>
+
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
             <input

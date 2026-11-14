@@ -18,7 +18,6 @@ try {
   assert.equal(login.status(), 200);
   await page.addInitScript(token => {
     localStorage.setItem('token', token);
-    localStorage.setItem('announcement_seen_3.1', 'true');
     localStorage.setItem('visionary_creation_mode', 'assistant');
   }, (await login.json()).access_token);
   const changes = [];

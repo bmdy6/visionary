@@ -141,29 +141,26 @@ class AssistantTrialTest(unittest.TestCase):
         old = create_engine('sqlite:///' + str(__import__('pathlib').Path(TEMP.name) / 'migration.db'))
         try:
             with old.begin() as conn:
-                conn.execute(text('CREATE TABLE users (id INTEGER PRIMARY KEY, points INTEGER)'))
-                conn.execute(text('INSERT INTO users VALUES (1,73)'))
+                conn.execute(text('CREATE TABLE users (id INTEGER PRIMARY KEY, points INTEGER, invited_by_id INTEGER, has_install_reward BOOLEAN)'))
+                conn.execute(text('INSERT INTO users VALUES (1,73,42,1)'))
                 conn.execute(text('CREATE TABLE image_logs (id INTEGER PRIMARY KEY)'))
+                conn.execute(text('CREATE TABLE feedbacks (id INTEGER PRIMARY KEY, content TEXT)'))
+                conn.execute(text("INSERT INTO feedbacks VALUES (1,'legacy feedback')"))
             migrate(old)
             migrate(old)
             with old.connect() as conn:
                 self.assertEqual(tuple(conn.execute(text('SELECT points, trial_remaining, frozen_trials FROM users')).one()), (73,0,0))
+                self.assertEqual(tuple(conn.execute(text('SELECT invited_by_id, has_install_reward FROM users')).one()), (42,1))
+                self.assertEqual(conn.execute(text('SELECT content FROM feedbacks')).scalar(), 'legacy feedback')
+                self.assertIsNone(conn.execute(text('SELECT upstream_cost_rmb FROM image_logs')).scalar())
         finally:
             old.dispose()
 
-    def test_zero_grant_and_configured_invitation_rewards(self):
-        self.client.put('/api/admin/settings/credits', headers=self.admin, json={'NEW_USER_FREE_GENERATIONS':'0', 'NEW_USER_POINTS':'21', 'INVITE_REWARD_POINTS':'3', 'INVITE_DAILY_LIMIT':'1'})
-        r = self.client.post('/api/auth/register-phone', json={'username':'invitee', 'phone':'10000000002', 'password':'synthetic-password', 'captcha_code':'1234','invite_code':'100001'})
-        self.assertEqual(r.status_code,200,r.text)
-        self.assertEqual((r.json()['user']['points'],r.json()['user']['trial_remaining']),(24,0))
-        with patch.object(image,'store_base64',return_value='/api/creations/test.png'):
-            h = {'Authorization':'Bearer '+r.json()['access_token']}
-            self.assertEqual(self.client.post('/api/image/generate',headers=h,json={'prompt':'first'}).status_code,200)
-        from backend.crud.recharge import can_receive_invitation_reward
-        with SessionLocal() as db:
-            self.assertEqual(db.get(models.User,1).points,13)
-            self.assertFalse(can_receive_invitation_reward(db,1))
-        self.assertEqual(self.client.get('/api/auth/invitation-stats',headers=self.headers).json()['daily_limit'],1)
+    def test_zero_trial_grant(self):
+        self.client.put('/api/admin/settings/credits', headers=self.admin, json={'NEW_USER_FREE_GENERATIONS':'0', 'NEW_USER_POINTS':'21'})
+        r = self.client.post('/api/auth/register-phone', json={'username':'zero-trial', 'phone':'10000000002', 'password':'synthetic-password', 'captcha_code':'1234'})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual((r.json()['user']['points'], r.json()['user']['trial_remaining']), (21, 0))
 
     def test_atomic_plan_claim_with_parallel_requests(self):
         from concurrent.futures import ThreadPoolExecutor

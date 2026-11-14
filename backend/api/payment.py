@@ -13,6 +13,13 @@ from ..core.config import get_config
 
 router = APIRouter(prefix="/payment", tags=["payment"])
 
+def payment_ready():
+    return all(get_config(k) for k in ('PAYLE_PID', 'PAYLE_KEY', 'PAYLE_API_URL', 'PAYLE_NOTIFY_URL', 'PAYLE_RETURN_URL'))
+
+@router.get('/config')
+def payment_config():
+    return {'online_enabled': bool(payment_ready())}
+
 def generate_out_trade_no():
     """生成 20 位唯一的商户订单号"""
     return f"{time.strftime('%Y%m%d%H%M%S')}{''.join(random.choices(string.digits, k=6))}"
@@ -24,6 +31,8 @@ def create_payment(
     current_user: models.User = Depends(get_current_user)
 ):
     """创建支付订单并返回支付链接"""
+    if not payment_ready():
+        raise HTTPException(503, "在线支付未配置，请使用人工充值报备")
     # 转换为整数，防止小数绕过
     money_int = int(data.money_amount)
     if money_int < 1:

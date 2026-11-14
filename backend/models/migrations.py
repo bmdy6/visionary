@@ -8,7 +8,7 @@ def migrate(engine):
     Base.metadata.create_all(engine)
     additions = {
         "users": {"trial_remaining": "INTEGER NOT NULL DEFAULT 0", "frozen_trials": "INTEGER NOT NULL DEFAULT 0"},
-        "image_logs": {"source": "VARCHAR(32) NOT NULL DEFAULT 'normal'", "trial_used": "BOOLEAN NOT NULL DEFAULT 0", "aspect_ratio": "VARCHAR(16) DEFAULT '1:1'"},
+        "image_logs": {"upstream_cost_rmb": "NUMERIC(12, 4)", "deleted_at": "DATETIME", "source": "VARCHAR(32) NOT NULL DEFAULT 'normal'", "trial_used": "BOOLEAN NOT NULL DEFAULT 0", "aspect_ratio": "VARCHAR(16) DEFAULT '1:1'"},
     }
     with engine.begin() as conn:
         for table, columns in additions.items():

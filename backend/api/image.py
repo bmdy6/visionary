@@ -12,7 +12,6 @@ from backend.models.database import get_db, session_scope
 from backend.models import models
 from backend.schemas import image as image_schema
 from backend.crud import image as image_crud
-from backend.crud import recharge as recharge_crud
 from backend.core.config import get_config
 from backend.core.billing_config import setting, public_billing
 import json
@@ -23,6 +22,8 @@ from backend.core.prompt_enhance import enhance_prompt
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
+from decimal import Decimal
 
 router = APIRouter(prefix="/image", tags=["image"])
 
@@ -204,6 +205,8 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
             log.status = "generating"
             if hasattr(log, "final_prompt"): log.final_prompt = prompt_to_send
 
+            log.upstream_cost_rmb = 0 if provider == "demo" else None
+
         # 3. 演示结果也经过同一个存储与结算流程。
         if provider == "demo":
             final_url, success = demo_image(), True
@@ -212,6 +215,9 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
         for attempt in range(0 if provider == "demo" else 3):
             try:
                 async with httpx.AsyncClient(timeout=180.0) as client:
+                    with session_scope() as cost_db:
+                        cost_log = cost_db.get(models.ImageLog, log_id)
+                        cost_log.upstream_cost_rmb = (cost_log.upstream_cost_rmb or Decimal("0")) + Decimal(str(COST_RMB.get(quality, 0)))
                     # 终极实锤协议：/v1/images/edits + JSON
                     api_path = "/images/generations"
                     payload = {
@@ -299,36 +305,6 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
                 user.points -= cost # 成功后才真正扣除余额
                 user.frozen_points = max(0, user.frozen_points - cost)
 
-                db.flush()  # Include this successful image in the first-image reward query.
-
-                # 6. 邀请奖励触发 (首画成功后发放给邀请人)
-                if user.invited_by_id:
-                    # 检查是否为该用户的首次成功画图
-                    success_count = db.query(models.ImageLog).filter(
-                        models.ImageLog.user_id == user_id,
-                        models.ImageLog.status == "success"
-                    ).count()
-
-                    if success_count == 1:
-                        # 检查邀请人今日奖励限额 (5次) 以及该受邀者是否已发放过
-                        if recharge_crud.can_receive_invitation_reward(db, user.invited_by_id) and \
-                           not recharge_crud.is_invitee_rewarded(db, user.id):
-
-                            inviter = db.query(models.User).filter(models.User.id == user.invited_by_id).first()
-                            if inviter:
-                                reward = setting("INVITE_REWARD_POINTS")
-                                inviter.points += reward
-                                recharge_crud.create_recharge_log(
-                                    db,
-                                    user_id=inviter.id,
-                                    amount=reward,
-                                    status="success",
-                                    admin_note=f"邀请好友 {user.uid} 完成首画奖励",
-                                    operator_id=0,
-                                    trade_no=f"INVITE_REWARD_{user.id}_{int(time.time())}"
-                                )
-                                print(f"--- [Invitation Reward] Inviter {inviter.id} rewarded {reward} pts for invitee {user.id} ---")
-
                 # 打印增强版控制台审计日志
                 print(f"\n--- [Task Audit] ID: {log_id} | SUCCESS ---")
                 print(f"Model: gpt-image-2 | Style: {style} | Quality: {quality}")
@@ -365,7 +341,7 @@ async def get_config_info():
 @router.get("/download")
 async def download_image(id: int, db: Session = Depends(get_db)):
     log = db.query(models.ImageLog).filter(models.ImageLog.id == id).first()
-    if not log or not log.image_url: raise HTTPException(status_code=404, detail="图片不存在")
+    if not log or log.deleted_at or not log.image_url: raise HTTPException(status_code=404, detail="图片不存在")
     return RedirectResponse(url=log.image_url)
 
 class EnhanceRequest(BaseModel):
@@ -469,8 +445,8 @@ async def generate_image(payload: image_schema.ImageCreate, background_tasks: Ba
             "iteration":payload.iteration}
 
 @router.get("/status/{id}")
-async def get_task_status(id: int, db: Session = Depends(get_db)):
-    log = db.query(models.ImageLog).filter(models.ImageLog.id == id).first()
+async def get_task_status(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    log = db.query(models.ImageLog).filter(models.ImageLog.id == id, models.ImageLog.user_id == current_user.id, models.ImageLog.deleted_at == None).first()
     if not log:
         raise HTTPException(404, "任务不存在")
     return {
@@ -490,8 +466,10 @@ async def get_task_status(id: int, db: Session = Depends(get_db)):
     }
 
 @router.get("/history")
-async def get_history(skip: int = 0, limit: int = 20, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    logs = image_crud.get_user_image_logs(db, current_user.id, skip=skip, limit=limit)
+async def get_history(skip: int = Query(0, ge=0), limit: int = Query(20, ge=1, le=100), source: Optional[str] = None, keyword: Optional[str] = None, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    if source not in (None, "normal", "assistant", "mcp"):
+        raise HTTPException(422, "来源无效")
+    logs = image_crud.get_user_image_logs(db, current_user.id, skip=skip, limit=limit, source=source, keyword=keyword)
     return [
         {
             "id": l.id,
@@ -516,8 +494,11 @@ async def get_history(skip: int = 0, limit: int = 20, db: Session = Depends(get_
 @router.delete("/{id}")
 async def delete_image(id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     log = db.query(models.ImageLog).filter(models.ImageLog.id == id).first()
-    if not log or log.user_id != current_user.id: raise HTTPException(status_code=403, detail="无权")
-    db.delete(log)
+    if not log or log.deleted_at or log.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="作品不存在")
+    if log.status in ("pending", "generating", "storing"):
+        raise HTTPException(status_code=409, detail="生成中的作品不能删除")
+    log.deleted_at = datetime.utcnow()
     db.commit()
     return {"message": "ok"}
 @router.post("/{log_id}/share")
