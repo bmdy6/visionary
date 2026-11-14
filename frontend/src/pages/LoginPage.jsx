@@ -1,9 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLoginController } from '../controllers/useLoginController';
 import Captcha from '../components/Captcha';
-import NeuralPlexus from '../components/NeuralPlexus';
 
 const LoginPage = () => {
   const {
@@ -33,7 +32,6 @@ const LoginPage = () => {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'transparent', position: 'relative' }}>
-      <NeuralPlexus />
       <div id="pc-main-stage" className="card" style={{
         padding: '30px 24px', width: '90%', maxWidth: '400px', textAlign: 'center',
         background: 'rgba(255, 255, 255, 0.7)', backdropFilter: 'blur(20px)',

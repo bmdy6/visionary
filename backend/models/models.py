@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint, Numeric
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -21,8 +21,6 @@ class User(Base):
     last_ip = Column(String)
     is_admin = Column(Boolean, default=False)
     has_used_experience = Column(Boolean, default=False) # 新增：是否已使用过 1 元体验
-    has_install_reward = Column(Boolean, default=False) # 新增：是否已领取安装桌面奖励
-    invited_by_id = Column(Integer, ForeignKey("users.id"), nullable=True) # 新增：邀请人 ID
     created_at = Column(DateTime, default=lambda: datetime.now(__import__('datetime').timezone(__import__('datetime').timedelta(hours=8))))
 
     # 关联
@@ -42,6 +40,8 @@ class ImageLog(Base):
     trial_used = Column(Boolean, default=False, nullable=False, server_default="0")
     aspect_ratio = Column(String, default="1:1", server_default="1:1")
     cost_points = Column(Integer)
+    deleted_at = Column(DateTime, nullable=True)  # Hide works without erasing consumption/cost history.
+    upstream_cost_rmb = Column(Numeric(12, 4), nullable=True)  # NULL: historical/unknown; demo: 0
     points_snapshot = Column(Integer, default=0) # 记录当时扣除的积分快照
     image_url = Column(String)
     ref_image_url = Column(String) # 新增：记录参考图
@@ -88,19 +88,6 @@ class SystemConfig(Base):
     config_value = Column(Text)
     description = Column(String(255))
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class Feedback(Base):
-    __tablename__ = "feedbacks"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    content = Column(Text, nullable=False)
-    contact = Column(String(100))
-    status = Column(String, default="pending")
-    admin_note = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(__import__('datetime').timezone(__import__('datetime').timedelta(hours=8))))
-
-    user = relationship("User")
 
 class VerificationCode(Base):
     __tablename__ = "verification_codes"

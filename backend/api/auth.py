@@ -7,12 +7,10 @@ from ..models.database import get_db
 from ..models import models
 from ..schemas import user as user_schema
 from ..crud import user as user_crud
-from ..crud import recharge as recharge_crud
 from ..core import security
 from ..core.deps import get_current_user
 from ..core.email import send_verification_email
-from ..core.config import get_config
-from ..core.billing_config import setting, registration_grant
+from ..core.billing_config import registration_grant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -82,33 +80,10 @@ def register(user: user_schema.UserCreateEmail, request: Request, db: Session = 
     vc.is_used = True
     db.commit()
 
-    # 4. 校验邀请码并确定邀请人
-    invited_by_id = None
-    inviter = None
-    if user.invite_code:
-        inviter = db.query(models.User).filter(models.User.uid == user.invite_code).first()
-        if inviter:
-            invited_by_id = inviter.id
-
     # 5. 加密密码并创建用户
     hashed_password = security.get_password_hash(user.password)
     client_ip = request.client.host if request.client else "unknown"
-    new_user = user_crud.create_user_by_email(db=db, user=user, password_hash=hashed_password, ip=client_ip, invited_by_id=invited_by_id)
-
-    # 6. 按配置发放受邀奖励
-    if inviter:
-        reward = setting("INVITE_REWARD_POINTS")
-        new_user.points += reward
-        recharge_crud.create_recharge_log(
-            db,
-            user_id=new_user.id,
-            amount=reward,
-            status="success",
-            admin_note=f"使用邀请码 {user.invite_code} 注册奖励",
-            operator_id=0,
-            trade_no=f"INVITE_JOIN_{new_user.id}_{int(datetime.now().timestamp())}"
-        )
-        db.commit()
+    new_user = user_crud.create_user_by_email(db=db, user=user, password_hash=hashed_password, ip=client_ip)
 
     # 7. 自动登录：生成 Token
     sub_val = new_user.username if new_user.username else new_user.email
@@ -151,14 +126,6 @@ def register_phone(user: user_schema.UserCreatePhone, request: Request, db: Sess
         # 默认用户名：手机号脱敏
         user.username = f"user_{user.phone[-4:]}"
 
-    # 4. 校验邀请码并确定邀请人
-    invited_by_id = None
-    inviter = None
-    if user.invite_code:
-        inviter = db.query(models.User).filter(models.User.uid == user.invite_code).first()
-        if inviter:
-            invited_by_id = inviter.id
-
     # 5. 加密密码并创建用户
     hashed_password = security.get_password_hash(user.password)
     client_ip = request.client.host if request.client else "unknown"
@@ -169,26 +136,11 @@ def register_phone(user: user_schema.UserCreatePhone, request: Request, db: Sess
         password_hash=hashed_password,
         fingerprint=user.fingerprint,
         last_ip=client_ip,
-        invited_by_id=invited_by_id,
         uid=user_crud.generate_unique_uid(db),
         **registration_grant()
     )
     db.add(db_user)
     db.flush()
-
-    # 6. 按配置发放受邀奖励
-    if inviter:
-        reward = setting("INVITE_REWARD_POINTS")
-        db_user.points += reward
-        recharge_crud.create_recharge_log(
-            db,
-            user_id=db_user.id,
-            amount=reward,
-            status="success",
-            admin_note=f"使用邀请码 {user.invite_code} 注册奖励",
-            operator_id=0,
-            trade_no=f"INVITE_JOIN_PHONE_{db_user.id}_{int(datetime.now().timestamp())}"
-        )
 
     db.commit()
     db.refresh(db_user)
@@ -379,54 +331,3 @@ def bind_phone(
     db.commit()
 
     return {"message": "手机号绑定成功"}
-
-@router.post("/claim-install-reward")
-def claim_install_reward(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # 防止未登录或无效用户请求
-    if not current_user:
-        raise HTTPException(status_code=401, detail="请先登录")
-
-    if current_user.has_install_reward:
-        raise HTTPException(status_code=400, detail="您已经领取过安装奖励了")
-
-    current_user.has_install_reward = True
-    current_user.points += 10
-
-    # 记录流水
-    recharge_crud.create_recharge_log(
-        db,
-        user_id=current_user.id,
-        amount=10,
-        status="success",
-        admin_note="系统自动发放 PWA 安装奖励",
-        operator_id=0,
-        trade_no=f"PWA_{current_user.id}_{int(datetime.now().timestamp())}"
-    )
-    db.commit()
-
-    return {"message": "安装奖励领取成功！", "points": current_user.points}
-
-@router.get("/invitation-stats")
-def get_invitation_stats(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # 1. 已成功邀请的人数 (受邀者已完成首画)
-    invited_count = db.query(models.User).filter(models.User.invited_by_id == current_user.id).count()
-
-    # 2. 今日已获得的奖励次数
-    from datetime import datetime, time, timedelta
-    now = datetime.utcnow() + timedelta(hours=8)
-    today_start = datetime.combine(now.date(), time.min) - timedelta(hours=8)
-
-    today_reward_count = db.query(models.RechargeLog).filter(
-        models.RechargeLog.user_id == current_user.id,
-        models.RechargeLog.trade_no.like("INVITE_REWARD_%"),
-        models.RechargeLog.created_at >= today_start
-    ).count()
-
-    return {
-        "invited_count": invited_count,
-        "today_reward_count": today_reward_count,
-        "daily_limit": setting("INVITE_DAILY_LIMIT"),
-        "reward_points": setting("INVITE_REWARD_POINTS"),
-        "invite_code": current_user.uid,
-        "invite_url": f"{get_config('FRONTEND_URL', 'http://localhost:5173')}/register?invite={current_user.uid}"
-    }

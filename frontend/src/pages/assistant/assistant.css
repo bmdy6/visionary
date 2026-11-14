@@ -1,7 +1,6 @@
 .creation-switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: var(--bg-main); flex-shrink: 0; }
 .creation-switch button { border: 0; border-radius: 10px; padding: 10px 16px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
 .creation-switch button[aria-pressed="true"] { background: var(--bg-card); box-shadow: var(--shadow); color: var(--primary); }
-.normal-mode-switch { margin-bottom: 16px; }
 .assistant-workspace { display: grid; grid-template-columns: minmax(300px, 2fr) minmax(0, 3fr); gap: 28px; align-items: stretch; }
 .assistant-chat, .assistant-plan, .credits-settings-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-mobile); padding: 20px; min-width: 0; }
 .assistant-chat { display: flex; flex-direction: column; height: 820px; }
@@ -68,7 +67,6 @@ button:disabled { cursor: not-allowed; }
 .credits-toggle::after { content: ''; display: block; width: 20px; height: 20px; border-radius: 50%; background: var(--bg-card); margin: 3px; }
 .credits-toggle:checked::after { transform: translateX(18px); }
 @media (max-width: 1024px) {
-  .normal-mode-switch { padding: 16px 16px 0; margin-bottom: 0; }
   .assistant-workspace { display: flex; flex-direction: column; padding: 16px; gap: 16px; padding-bottom: 160px; }
   .assistant-chat { height: 520px; padding: 16px; }
   .assistant-plan { padding: 20px; }

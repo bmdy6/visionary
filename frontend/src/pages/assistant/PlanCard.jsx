@@ -24,7 +24,7 @@ export default function PlanCard({ plan, charge, pricing, busy, onEdit, onGenera
       <dl className="plan-fields">
         <dt>画面描述</dt><dd>{editing ? <textarea required aria-label="画面描述" maxLength={1000} value={draft.prompt} onChange={e => change('prompt', e.target.value)} /> : <p>{data.prompt}</p>}</dd>
         <dt>比例</dt><dd>{options('aspect_ratio', { '1:1':'1:1', '9:16':'9:16', '16:9':'16:9' })}</dd>
-        <dt>风格</dt><dd>{options('style', STYLES)}</dd>
+        <dt>风格</dt><dd><select aria-label="方案风格" disabled={!editing || busy} value={data.style} onChange={e => change('style', e.target.value)}>{Object.entries(STYLES).map(([k,v]) => <option key={k} value={k}>{v}</option>)}</select></dd>
         <dt>档位</dt><dd>{options('quality', Object.fromEntries(Object.entries(TIERS).map(([k,v]) => [k, `${v} ${pricing?.[k] ?? '…'} 积分`])) )}</dd>
         <dt>参考图</dt><dd>{data.ref_image_url && !removeReference ? <div className="plan-reference"><img src={data.ref_image_url} alt="绑定的参考图" />{editing && <button type="button" onClick={() => setRemoveReference(true)} aria-label="移除参考图">×</button>}</div> : <span className="muted">未绑定，可在对话中上传</span>}</dd>
       </dl>

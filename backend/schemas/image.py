@@ -16,6 +16,8 @@ class ImageCreate(BaseModel):
 class ImageLogInfo(BaseModel):
     id: int
     prompt: str
+    source: str = "normal"
+    trial_used: bool = False
     quality: str
     cost_points: int
     image_url: Optional[str] = None

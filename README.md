@@ -4,25 +4,21 @@ AI image generation with credit accounting, image history, and an admin dashboar
 
 用 React 与 FastAPI 搭建的 AI 生图工作台，从输入灵感、查看作品到积分结算和后台管理。
 
-## 界面预览
+## 界面与验收
 
-<a href="docs/screenshots/home-generation.png"><img src="docs/screenshots/home-generation.png" alt="桌面生图工作台：生成结果与任务列表" width="640"></a>
+页面按 [Issue #5](https://github.com/bmdy6/visionary/issues/5) 的 [桌面创作](docs/design/s1-home.png)、[移动创作](docs/design/s2-mobile.png)、[我的作品](docs/design/s3-history.png)、[账户](docs/design/s4-account.png)、[后台](docs/design/s5-admin.png) 精简。设计图中的黄色便签是需求说明，不属于页面。
 
-| 历史记录 | 积分与充值 | 管理后台 | 移动端 |
-| --- | --- | --- | --- |
-| [![历史作品与提示词](docs/screenshots/history.png)](docs/screenshots/history.png) | [![积分余额与充值面板](docs/screenshots/credits-recharge.png)](docs/screenshots/credits-recharge.png) | [![管理仪表盘与作品动态](docs/screenshots/admin-dashboard.png)](docs/screenshots/admin-dashboard.png) | [![移动端创作与结果](docs/screenshots/mobile-generation.png)](docs/screenshots/mobile-generation.png) |
-
-以上为本地运行截图，使用合成账号和数据；假上游返回仓库自带展示图。[截图来源与拍摄方式](docs/screenshots/SOURCES.md)。
+第 5 轮重新拍摄了 1440 / 390 宽度的注册、连续生成、参考图续改、作品筛选、明细、充值审核和后台设置。按任务要求，实拍证据和逐张差异仅随本轮交付报告保存，不提交到公开仓库；已移除展示旧界面的截图，避免与当前实现混淆。
 
 ## 功能
 
 - **AI 助手**：先聊方案、上传参考图、版本编辑，确认后才生成；无 key 可用演示对话。
-- **免费试用与配置**：新用户默认 5 次标准档试用，优先试用再积分；后台可调整试用、档位价格、注册积分和邀请奖励。
-- **创作工作台**：文字生图、参考图生图、画面比例选择、风格模板与提示词润色，支持作品迭代。
-- **作品管理**：历史记录、提示词复用、图片删除、下载和分享海报。
+- **免费试用与配置**：新用户默认 5 次标准档试用，优先试用再积分；后台可调整试用、档位价格、注册积分。
+- **创作工作台**：文字生图、参考图生图、画面比例选择、风格模板与提示词润色，支持连续提交，最多同时 3 张；结果出现后输入区仍可用。
+- **作品管理**：按网页 / AI 助手 / MCP 来源筛选，详情中继续改、删除、下载和分享海报。
 - **账号与积分**：JWT 登录、邮件验证码注册和找回密码；积分余额、消费与充值明细、人工充值报备。
-- **管理后台**：充值审核、手动加分、作品与积分统计、反馈处理。
-- **桌面与移动端**：分别适配的工作台布局，附 PWA 安装引导。
+- **管理后台**：概览、充值审核、用户、系统设置；手动加分位于用户详情，成本从任务记录自动汇总。
+- **桌面与移动端**：同一套响应式工作台，移动输入固定底部；保留可安装的 PWA，无安装奖励。
 
 ## 值得看的设计
 
@@ -36,7 +32,7 @@ AI image generation with credit accounting, image history, and an admin dashboar
 
 生成接口先创建 `pending` 记录并返回任务 ID，再由 FastAPI 后台任务完成提示词包装、上游请求与图片转存。前端按 ID 轮询 `pending / generating / success / failed` 状态，将等待过程和生成结果展示在任务卡片中；后端同时记录 API、存储与总耗时。
 
-实现：[任务处理与状态查询](backend/api/image.py)、[桌面轮询](frontend/src/pages/HomePage.jsx)、[移动轮询](frontend/src/pages/MobileHomePage.jsx)。
+实现：[任务处理与状态查询](backend/api/image.py)、[响应式工作台与轮询](frontend/src/pages/HomePage.jsx)。
 
 ### 上游与存储配置独立于页面
 
@@ -58,7 +54,7 @@ bash scripts/dev.sh
 
 脚本自动创建 `.venv`、安装前后端依赖、从 `.env.example` 生成带随机 `SECRET_KEY` 的 `.env`，初始化数据库和 `local-admin` 管理员。首次运行按提示设置至少 12 位的密码；管理员初始有 100 个本地积分。再次运行会保留已有配置、密码、数据和余额。
 
-访问 <http://127.0.0.1:5173>，使用 `local-admin` 和刚设置的密码登录，填入提示词，点击「开启精彩创作」。成功后到「历史记录」查看和下载作品。生成结果处于查看模式时，先点右侧任务栏的「+」新建创作，再在「高级工具 → 参考图片」上传图片并提交，可体验参考图任务；也可在作品详情中复用。API 文档位于 <http://127.0.0.1:8000/docs>。
+访问 <http://127.0.0.1:5173>，使用 `local-admin` 和刚设置的密码登录，填写画面描述并点击「生成 · N 积分」或「免费试用」。生成中可继续输入和提交，最多同时 3 张；成功后点「以此为参考继续改」直接装入参考图并聚焦输入框。也可用输入框底部的「参考图」上传图片、点「润色」优化基础风格的描述。作品统一进入「我的作品」，详情提供下载和分享海报。API 文档位于 <http://127.0.0.1:8000/docs>。
 
 默认是**演示模式**：循环返回 `showcase/` 自带 PNG 示例图，不根据提示词、比例或参考图绘制新内容；页面会显示演示提示。任务仍执行冻结积分、后台处理、轮询和成功结算；新注册用户优先使用试用，默认标准档每次 5 分。图片和参考图写入 `backend/data/creations/`，经 `/api/creations/` 访问，不会提交到 Git。AI 助手无模型 key 时先追问一轮，再给演示方案；提示词润色、真实邮件和支付需各自配置。
 
@@ -135,7 +131,7 @@ python tests/offline_regression.py
 
 ### AI 助手与免费试用
 
-创作首页可切换「普通模式 / AI 助手」，浏览器会记住上次选择。助手先聊需求、绑定参考图并给出方案，只有点击「确认生成」才进入原有生成流程；聊天中说“生成”不会直接提交。方案可手动编辑，每次更新版本号递增，同一方案版本连点或刷新不会重复预占。结果记录来源为 `assistant`，在「我的创作」中可下载；高清和大师档沿用原有精修限制。
+创作首页可切换「普通模式 / AI 助手」，浏览器会记住上次选择。助手先聊需求、绑定参考图并给出方案，只有点击「确认生成」才进入原有生成流程；聊天中说“生成”不会直接提交。方案可手动编辑，每次更新版本号递增，同一方案版本连点或刷新不会重复预占。结果记录来源为 `assistant`，在「我的作品」中可下载、作为新任务的参考图继续改；旧 API 的带父任务精修限制保留。
 
 没有 `DASHSCOPE_API_KEY` / `OPENAI_API_KEY` 时使用固定演示对话。配置后复用提示词润色的 Qwen 优先、兼容接口回退选择；对话模型只读取文字和参考图绑定状态，图片本身在确认后传给生图服务。演示生成继续返回内置样图。聊天与方案存数据库，按用户隔离，可点「新对话」。每个对话最多 50 轮，模型上下文最多最近 20 条消息。
 
@@ -151,13 +147,19 @@ python tests/offline_regression.py
 | `TRIAL_ALLOWED_TIERS` | `standard` | 逗号分隔允许使用试用的档位 |
 | `NEW_USER_POINTS` | `10` | 新账号注册积分 |
 | `TIER_COSTS` | `standard:5,hd:10,master:15` | 每个档位生成消耗的积分，预占后以任务快照结算 |
-| `INVITE_REWARD_POINTS` | `5` | 受邀注册奖励、邀请人首画奖励；以 Issue #3 的默认值为准 |
-| `INVITE_DAILY_LIMIT` | `5` | 每位邀请人每日首画奖励次数上限 |
 | `ASSISTANT_MODE_ENABLED` | `true` | 隐藏助手切换并拒绝新聊天、编辑和方案提交 |
 
 升级已有数据库前，先停服务并备份数据库，然后运行 `python -m scripts.init_db`（复用当前 `DATABASE_URL`）。这是可重复执行的增量迁移，保留已有账号、密码和积分；`scripts/dev.sh` 也会执行它。首次建库不需要另做迁移。回退到旧版应用可保留新增表和列，勿直接删除数据库。
 
 后端离线检查：`python -m unittest discover -s tests -v`、`python tests/offline_regression.py`。可选 headless 编辑回归在 `tests/assistant_editor.mjs`：另行安装 Playwright，设置 `VISIONARY_TEST_USERNAME`、`VISIONARY_TEST_PASSWORD` 为合成测试账号（需已有助手方案），运行 `node tests/assistant_editor.mjs`；`PLAYWRIGHT_MODULE` 可指向独立安装的模块。请使用演示或回环假服务，不调用真实付费接口。
+
+### 第 5 轮页面与数据边界
+
+导航保留创作、我的作品，管理员另有管理后台；个人中心合并账户、积分明细和安全设置。价格、指南、独立明细等旧页面链接统一重定向到首页。未配置完整支付参数时只显示人工充值报备，在线下单也会在写入订单前拒绝缺配置请求。分享海报二维码指向站点首页。
+
+邀请系统、反馈、公告/维护弹窗、背景粒子和安装奖励均已移除，旧数据库字段/表保留。API/MCP 账户页面、无限积分属于下一轮，本轮仅预留 `mcp` 来源筛选。
+
+状态查询需要登录且仅返回本人的任务，其他用户及不存在的任务均返回 404。每次上游调用尝试记录代码中 `COST_RMB` 的价格快照，演示为 0；后台自动累计本月记录，不以用户充值倒算成本。该数字是配置费率的估算，不是供应商账单。迁移前记录保持 NULL，界面标注未知，不倒填历史费用。
 
 ## 技术栈
 
@@ -176,7 +178,7 @@ python tests/offline_regression.py
 - 后台任务在 Web 进程内运行；持久化队列、重启恢复及积分结算与重置的并发约束仍待完善。
 - 对外开放前需加固接口归属、图片代理和账号验证；支付适配的回调金额校验也需完善。
 - 上游有特定请求格式要求；界面档位影响计费和提示词，但发送给上游的 `quality` 均为 `low`。
-- 无 key 演示仅返回已有图；本地文件需备份，删除历史记录不清理文件。真实生图、COS、邮件、支付、MySQL 和 PWA 真机仍需各自验收；依赖仍有开发工具告警。
+- 无 key 演示仅返回已有图；本地文件需备份，删除作品仅从作品页隐藏，保留消费/成本记录和文件。真实生图、COS、邮件、支付、MySQL 和 PWA 真机仍需各自验收；依赖仍有开发工具告警。
 - 历史展示素材的权利来源需单独确认，代码的 MIT 许可不覆盖第三方图像权利。
 
 详见 [完整限制与验证范围](docs/LIMITATIONS.md)。

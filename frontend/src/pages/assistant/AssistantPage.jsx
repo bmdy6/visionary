@@ -50,8 +50,8 @@ export default function AssistantPage({ billing, switcher }) {
       <section className="assistant-result" aria-label="生成结果" aria-live="polite">
         {!plan?.task_id ? <div className="assistant-empty">确认方案后，作品会在这里出现。</div> : a.task?.status === 'success' ? <>
           <img className="assistant-result-image" src={a.task.image_url} alt="AI 助手生成结果"/>
-          <div className="assistant-result-actions"><a href={`/api/image/download?id=${plan.task_id}`} download className="assistant-link">下载图片</a><Link to="/history" className="assistant-link">我的创作 · 迭代精修</Link></div>
-        </> : ['failed','deleted'].includes(a.task?.status) ? <div className="assistant-empty"><h2>{a.task.status === 'failed' ? '生成失败' : '作品已删除'}</h2><p>{a.task.status === 'failed' ? '本次冻结已释放；可编辑方案后重新确认。' : '本版保留提交记录，避免重复扣费。'}</p><Link to="/history">查看我的创作</Link></div> : <div className="assistant-empty"><h2>生成中…</h2><p>可以离开这个页面，完成后在「我的创作」里也能看到</p><progress aria-label="生成进度" /></div>}
+          <div className="assistant-result-actions"><a href={`/api/image/download?id=${plan.task_id}`} download className="assistant-link">下载图片</a><Link to="/history" className="assistant-link">我的作品 · 继续改</Link></div>
+        </> : ['failed','deleted'].includes(a.task?.status) ? <div className="assistant-empty"><h2>{a.task.status === 'failed' ? '生成失败' : '作品已删除'}</h2><p>{a.task.status === 'failed' ? '本次冻结已释放；可编辑方案后重新确认。' : '本版保留提交记录，避免重复扣费。'}</p><Link to="/history">查看我的作品</Link></div> : <div className="assistant-empty"><h2>生成中…</h2><p>可以离开这个页面，完成后在「我的作品」里也能看到</p><progress aria-label="生成进度" /></div>}
       </section>
     </div>
     {recharge && <RechargeModal uid={billing.user?.uid} hasUsedExperience={billing.user?.has_used_experience} onClose={() => setRecharge(false)} onSuccess={billing.refresh}/>}

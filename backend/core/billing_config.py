@@ -6,8 +6,6 @@ DEFAULTS = {
     'TRIAL_ALLOWED_TIERS': 'standard',
     'NEW_USER_POINTS': '10',
     'TIER_COSTS': 'standard:5,hd:10,master:15',
-    'INVITE_REWARD_POINTS': '5',
-    'INVITE_DAILY_LIMIT': '5',
     'ASSISTANT_MODE_ENABLED': 'true',
 }
 TIERS = ('standard', 'hd', 'master')
@@ -56,5 +54,4 @@ def registration_grant():
 def public_billing():
     return {'pricing': setting('TIER_COSTS'), 'trial_allowed_tiers': setting('TRIAL_ALLOWED_TIERS'),
             'assistant_mode_enabled': setting('ASSISTANT_MODE_ENABLED'),
-            'new_user_points': setting('NEW_USER_POINTS'), 'new_user_free_generations': setting('NEW_USER_FREE_GENERATIONS'),
-            'invite_reward_points': setting('INVITE_REWARD_POINTS'), 'invite_daily_limit': setting('INVITE_DAILY_LIMIT')}
+            'new_user_points': setting('NEW_USER_POINTS'), 'new_user_free_generations': setting('NEW_USER_FREE_GENERATIONS')}

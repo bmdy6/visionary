@@ -134,6 +134,8 @@ class RunnableTest(unittest.TestCase):
         with SessionLocal() as db:
             user, log = db.get(models.User, self.uid), db.get(models.ImageLog, log_id)
             self.assertEqual(log.status, "success", log.error_msg)
+            from decimal import Decimal
+            self.assertEqual(log.upstream_cost_rmb, Decimal("0") if image_provider.get_image_provider() == "demo" else Decimal("0.45"))
             self.assertEqual(user.points, before - 5)
             self.assertEqual(user.frozen_points, 0)
             url = log.image_url
