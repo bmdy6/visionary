@@ -3,6 +3,11 @@
 AI image generation with credit accounting, image history, and an admin dashboard.
 用 React 与 FastAPI 搭建的 AI 生图工作台，从输入灵感、查看作品到积分结算和后台管理。
 
+<!-- readme-illustrate:creation -->
+<img src="docs/images/creation.webp" alt="创作页中输入苏州旅行手账描述、选择档位并查看演示结果" width="580">
+
+创作页：输入、档位与演示结果（[截图来源](docs/images/SOURCES.md)）。
+<!-- /readme-illustrate:creation -->
 ## 快速开始
 
 ```bash
@@ -25,6 +30,11 @@ bash scripts/dev.sh
 
 先启动 Visionary，在「个人中心 → API 与 MCP」填写名称并创建 Token。`vsn_` 明文只在创建时显示一次；列表仅显示前缀、后四位、创建时间、最近使用与本月调用数。关闭明文后无法找回，需要撤销并新建。Token 等同允许消费你账号的积分，请只交给信任的 Agent。
 
+<!-- readme-illustrate:api-mcp -->
+<img src="docs/images/api-mcp.webp" alt="个人中心的 API Token 列表与 MCP 接入配置" width="838">
+
+API 与 MCP：管理个人 Token，并复制 Agent 接入配置；图中仅显示临时 Token 的遮罩与配置占位符。
+<!-- /readme-illustrate:api-mcp -->
 安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)，在 MCP 客户端加入配置：
 
 ```json
@@ -77,6 +87,11 @@ uvx --from 'git+https://github.com/bmdy6/visionary@main#subdirectory=mcp' vision
 
 ### AI 助手与免费试用
 
+<!-- readme-illustrate:assistant -->
+<img src="docs/images/assistant.webp" alt="AI 助手对话、版本方案与确认后的演示结果" width="838">
+
+AI 助手：先讨论方案，确认后再生成，结果保留在同一工作台。
+<!-- /readme-illustrate:assistant -->
 创作首页可切换「普通模式 / AI 助手」，浏览器会记住上次选择。助手先聊需求、绑定参考图并给出方案，只有点击「确认生成」才进入原有生成流程；聊天中说“生成”不会直接提交。方案可手动编辑，每次更新版本号递增，同一方案版本连点或刷新不会重复预占。结果记录来源为 `assistant`，在「我的作品」中可下载、作为新任务的参考图继续改；旧 API 的带父任务精修限制保留。
 
 没有 `DASHSCOPE_API_KEY` / `OPENAI_API_KEY` 时使用固定演示对话。配置后复用提示词润色的 Qwen 优先、兼容接口回退选择；对话模型只读取文字和参考图绑定状态，图片本身在确认后传给生图服务。演示生成继续返回内置样图。聊天与方案存数据库，按用户隔离，可点「新对话」。每个对话最多 50 轮，模型上下文最多最近 20 条消息。
@@ -87,6 +102,16 @@ uvx --from 'git+https://github.com/bmdy6/visionary@main#subdirectory=mcp' vision
 
 网页、AI 助手和 MCP 生成的作品统一进入「我的作品」，可按来源筛选、查看详情、下载、继续改和分享海报。移动端使用同一套响应式工作台，输入区固定在底部。
 
+<!-- readme-illustrate:works -->
+<img src="docs/images/works.webp" alt="按网页、AI 助手和 MCP 来源筛选的作品列表" width="838">
+
+我的作品：网页、AI 助手与 MCP 的任务统一归档，可按来源筛选。
+<!-- /readme-illustrate:works -->
+<!-- readme-illustrate:mobile -->
+<img src="docs/images/mobile.webp" alt="390 像素手机视口中的创作结果、固定输入区与底部导航" width="330">
+
+手机端：390 × 844 浏览器视口中的结果预览与底部输入区。
+<!-- /readme-illustrate:mobile -->
 ### 页面导航与数据边界
 
 导航保留创作、我的作品，管理员另有管理后台；个人中心合并账户、积分明细和安全设置。价格、指南、独立明细等旧页面链接统一重定向到首页。未配置完整支付参数时只显示人工充值报备，在线下单也会在写入订单前拒绝缺配置请求。分享海报二维码指向站点首页。
@@ -97,6 +122,11 @@ uvx --from 'git+https://github.com/bmdy6/visionary@main#subdirectory=mcp' vision
 
 ## 管理与配置
 
+<!-- readme-illustrate:admin -->
+<img src="docs/images/admin.webp" alt="管理后台的概览、来源统计和最近生成流水" width="838">
+
+管理后台：查看用户、本月生成、充值、上游成本估算和最近任务。
+<!-- /readme-illustrate:admin -->
 ### 系统设置 · 积分与试用
 
 管理员在「管理后台 → 系统设置」保存，当前进程立即刷新配置缓存；其他进程最多 60 秒刷新。非空 `system_configs` → 非空 `.env` / 环境变量 → 默认值。修改记录在现有充值审计流水（`CONFIG_` 前缀、零积分、管理员和前后值），不会给账号增加余额。数字限制为 0–1000000 的整数；档位必须有效。

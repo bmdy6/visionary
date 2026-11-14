@@ -1,0 +1,85 @@
+{
+  "baseline": {
+    "version": 2,
+    "commit": "0ea7529134fe2b72457f6b89dcdbdc155bc0f17c",
+    "readmes": [
+      {
+        "file": "README.md",
+        "blob": "cad25ad6db972736ebcc9cd55564068b539275de"
+      }
+    ]
+  },
+  "originalBaseline": {
+    "version": 2,
+    "commit": "9b5afd88044c42c78248d58a1dabb92230127a70",
+    "readmes": [
+      {
+        "file": "README.md",
+        "blob": "4edba14fbf8289162cb1b4bd828422557df98bbd"
+      }
+    ]
+  },
+  "sources": "docs/images/SOURCES.md",
+  "images": [
+    {
+      "id": "creation",
+      "readme": "README.md",
+      "file": "docs/images/creation.webp",
+      "alt": "创作页中输入苏州旅行手账描述、选择档位并查看演示结果",
+      "width": 580,
+      "caption": "创作页：输入、档位与演示结果（[截图来源](docs/images/SOURCES.md)）。",
+      "placement": "hero",
+      "sha256": "ce76a2e07093ef589961f54e056f80a37ccce6d9c887bc002f2a53e134606185"
+    },
+    {
+      "id": "api-mcp",
+      "readme": "README.md",
+      "file": "docs/images/api-mcp.webp",
+      "alt": "个人中心的 API Token 列表与 MCP 接入配置",
+      "width": 838,
+      "caption": "API 与 MCP：管理个人 Token，并复制 Agent 接入配置；图中仅显示临时 Token 的遮罩与配置占位符。",
+      "placement": "step",
+      "sha256": "49ff04332f30444a9bf5b7209b71b4f23af8a75889d8b49fc141836f2efeccf8"
+    },
+    {
+      "id": "assistant",
+      "readme": "README.md",
+      "file": "docs/images/assistant.webp",
+      "alt": "AI 助手对话、版本方案与确认后的演示结果",
+      "width": 838,
+      "caption": "AI 助手：先讨论方案，确认后再生成，结果保留在同一工作台。",
+      "placement": "step",
+      "sha256": "71b4aa5242af136393c21d8907c715f03c817be5cc6e4b60a17308b53209771d"
+    },
+    {
+      "id": "works",
+      "readme": "README.md",
+      "file": "docs/images/works.webp",
+      "alt": "按网页、AI 助手和 MCP 来源筛选的作品列表",
+      "width": 838,
+      "caption": "我的作品：网页、AI 助手与 MCP 的任务统一归档，可按来源筛选。",
+      "placement": "step",
+      "sha256": "5f37afe6d12f4e76d17741c7ac647599f4aa74590961613a122a368bfa6f3a5c"
+    },
+    {
+      "id": "mobile",
+      "readme": "README.md",
+      "file": "docs/images/mobile.webp",
+      "alt": "390 像素手机视口中的创作结果、固定输入区与底部导航",
+      "width": 330,
+      "caption": "手机端：390 × 844 浏览器视口中的结果预览与底部输入区。",
+      "placement": "step",
+      "sha256": "613fd544e6562c704ebebc0e866ac80b630cdcdf7b5ae2c0527dbff372740cfd"
+    },
+    {
+      "id": "admin",
+      "readme": "README.md",
+      "file": "docs/images/admin.webp",
+      "alt": "管理后台的概览、来源统计和最近生成流水",
+      "width": 838,
+      "caption": "管理后台：查看用户、本月生成、充值、上游成本估算和最近任务。",
+      "placement": "step",
+      "sha256": "90b8d7078c51c810e1d1add019b651607e2d061bedd49cf28fdbd4deb5acbb51"
+    }
+  ]
+}
