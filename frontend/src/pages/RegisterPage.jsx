@@ -6,6 +6,8 @@ import Captcha from '../components/Captcha';
 import { useCallback } from 'react';
 
 const RegisterPage = () => {
+  const [registrationConfig, setRegistrationConfig] = useState(null);
+  useEffect(() => { request.get('/image/config').then(setRegistrationConfig).catch(() => {}); }, []);
   const [regMode, setRegMode] = useState('phone'); // phone or email
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -115,7 +117,7 @@ const RegisterPage = () => {
 
         <div style={{ background: '#fff5f0', color: '#e66b33', padding: '12px', borderRadius: '10px', fontSize: '13px', marginBottom: '25px', textAlign: 'left', border: '1px solid #ffdecb' }}>
           💡 <strong>内测提示：</strong>
-          <br />当前仅开放 100 个内测名额，注册即送 10 积分。
+          <br />当前仅开放 100 个内测名额，注册即送 {registrationConfig?.new_user_points ?? "…"} 积分{registrationConfig?.new_user_free_generations > 0 ? `，另有 ${registrationConfig.new_user_free_generations} 次免费试用` : ""}。
         </div>
 
         {/* 注册方式切换 */}
@@ -215,7 +217,7 @@ const RegisterPage = () => {
               style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ddd', outline: 'none', width: '100%', boxSizing: 'border-box' }}
             />
             <p style={{ fontSize: '12px', color: '#e66b33', marginTop: '6px', marginLeft: '4px' }}>
-              💡 填写邀请码注册，额外赠送 5 积分奖励
+              💡 填写邀请码注册，额外赠送 {registrationConfig?.invite_reward_points ?? "…"} 积分奖励
             </p>
           </div>
 

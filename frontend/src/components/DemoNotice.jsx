@@ -13,7 +13,7 @@ export default function DemoNotice() {
   }, []);
   return demo ? (
     <p className="demo-notice" role="status">
-      演示模式：返回内置示例图，不根据提示词或参考图生成新图；成功后照常扣除本地积分。
+      演示模式：返回内置示例图，不根据提示词或参考图生成新图；成功后结算本地试用次数或积分。
     </p>
   ) : null;
 }

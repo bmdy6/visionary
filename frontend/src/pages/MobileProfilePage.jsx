@@ -503,19 +503,19 @@ const MobileProfilePage = ({ isMobile }) => {
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <div style={{ width: '20px', height: '20px', borderRadius: '10px', background: '#FF6B00', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>1</div>
                 <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.5' }}>
-                  <b>好友注册：</b>好友使用您的邀请码注册，立即获得 <span style={{ color: '#FF6B00', fontWeight: '800' }}>5 积分</span> 启航礼包。
+                  <b>好友注册：</b>好友使用您的邀请码注册，立即获得 <span style={{ color: '#FF6B00', fontWeight: '800' }}>{inviteStats?.reward_points ?? "…"} 积分</span> 启航礼包。
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <div style={{ width: '20px', height: '20px', borderRadius: '10px', background: '#FF6B00', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</div>
                 <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.5' }}>
-                  <b>首画成功：</b>好友完成首次 AI 图像生成后，您将获得 <span style={{ color: '#FF6B00', fontWeight: '800' }}>10 积分</span> 推广奖励。
+                  <b>首画成功：</b>好友完成首次 AI 图像生成后，您将获得 <span style={{ color: '#FF6B00', fontWeight: '800' }}>{inviteStats?.reward_points ?? "…"} 积分</span> 推广奖励。
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <div style={{ width: '20px', height: '20px', borderRadius: '10px', background: '#FF6B00', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</div>
                 <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.5' }}>
-                  <b>每日上限：</b>每人每日最多可通过邀请获得 5 次奖励（共 50 积分）。
+                  <b>每日上限：</b>每人每日最多可通过邀请获得 {inviteStats?.daily_limit ?? "…"} 次奖励（共 {(inviteStats?.daily_limit ?? 0) * (inviteStats?.reward_points ?? 0)} 积分）。
                 </div>
               </div>
             </div>
@@ -534,7 +534,7 @@ const MobileProfilePage = ({ isMobile }) => {
           </div>
 
           <div style={{ textAlign: 'center', fontSize: '11px', color: '#999' }}>
-             今日奖励配额剩余: {5 - (inviteStats?.today_reward_count || 0)} / 5
+             今日奖励配额剩余: {Math.max(0, (inviteStats?.daily_limit ?? 0) - (inviteStats?.today_reward_count || 0))} / {inviteStats?.daily_limit ?? "…"}
           </div>
         </div>
       </MobileDrawer>

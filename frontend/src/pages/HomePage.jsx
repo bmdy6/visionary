@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import useBilling, { creditsChanged } from '../hooks/useBilling';
+import GenerationCharge from '../components/GenerationCharge';
 import request, { logout } from '../api/request';
 import {
   Images,
@@ -49,6 +51,7 @@ import {
 import Showcase from '../components/Showcase';
 
 const HomePage = () => {
+  const billing = useBilling();
   const navigate = useNavigate();
   const [userInfo, setUserInfo] = useState(null);
   const [prompt, setPrompt] = useState('');
@@ -117,11 +120,7 @@ const HomePage = () => {
   };
 
   // 积分计算矩阵 (V1.3 激进定价)
-  const [pricingMap, setPricingMap] = useState({
-    'standard': 5,
-    'hd': 10,
-    'master': 15
-  });
+  const pricingMap = billing.config?.pricing || {};
 
   const styles = [
     // --- 第一梯队：全量基础 (All) ---
@@ -197,7 +196,6 @@ const HomePage = () => {
     } else {
       setUserInfo({ username: '游客用户', points: 0, uid: 'GUEST' });
     }
-    fetchConfig();
     checkPendingPrompt();
     loadActiveJobs(); // 加载持久化任务
   }, []);
@@ -252,11 +250,13 @@ const HomePage = () => {
         else if (statusRes.status === 'success') {
           clearInterval(timer);
           delete pollTimers.current[jobId];
+          creditsChanged();
           setActiveJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'success', progress: 100, result: statusRes.image_url, final_prompt: statusRes.final_prompt } : j));
           return;
         } else if (statusRes.status === 'failed') {
           clearInterval(timer);
           delete pollTimers.current[jobId];
+          creditsChanged();
           setActiveJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'failed', error: statusRes.error } : j));
           return;
         }
@@ -268,6 +268,7 @@ const HomePage = () => {
       if (pollCount > 60) {
         clearInterval(timer);
         delete pollTimers.current[jobId];
+        creditsChanged();
         setActiveJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'failed', error: '请求超时' } : j));
       }
     }, 3000);
@@ -275,12 +276,7 @@ const HomePage = () => {
     pollTimers.current[jobId] = timer;
   };
 
-  const fetchConfig = async () => {
-    try {
-      const data = await request.get('/image/config');
-      if (data.pricing) setPricingMap(data.pricing);
-    } catch (err) {}
-  };
+
 
   const checkPendingPrompt = () => {
     const pending = sessionStorage.getItem('pending_prompt');
@@ -292,6 +288,9 @@ const HomePage = () => {
       if (data.style) {
         const styleObj = styles.find(s => s.id === data.style);
         if (styleObj) setSelectedStyle(styleObj);
+        else if (['illustration', 'watercolor'].includes(data.style)) setSelectedStyle({
+          id:data.style, name:data.style === 'watercolor' ? '水彩' : '治愈插画', desc:'来自 AI 助手方案', icon:<Palette size={24} />,
+        });
       }
       if (data.quality) setQuality(data.quality);
       if (data.ref_image_url) setRefImageUrl(data.ref_image_url);
@@ -385,8 +384,8 @@ const HomePage = () => {
     setShowConfirmModal(false);
 
     // 积分预检
-    const cost = pricingMap[quality] || 5;
-    if (userInfo && userInfo.points < cost) {
+    const cost = billing.charge(quality).cost;
+    if (!billing.charge(quality).allowed) {
       setRequiredPoints(cost);
       setShowPointsModal(true);
       return;
@@ -451,6 +450,7 @@ const HomePage = () => {
         setRefineParentId(null);
         setRefineRootId(null);
       }
+      creditsChanged();
       const taskId = res.id;
       setUserInfo(prev => ({ ...prev, points: res.remaining_points }));
 
@@ -755,11 +755,11 @@ const HomePage = () => {
           <button
             className={`btn-primary ${loading ? 'loading-pulse' : ''}`}
             onClick={handleGenerate}
-            disabled={loading || !prompt.trim() || (selectedStyle.requiresImage && !refImageUrl) || !!currentJobId}
+            disabled={(!isGuest && !billing.charge(quality).allowed) || loading || !prompt.trim() || (selectedStyle.requiresImage && !refImageUrl) || !!currentJobId}
             style={{
               width: '100%', marginTop: 'auto', height: '44px',
               borderRadius: '10px', fontSize: '14px',
-              background: (loading || !!currentJobId) ? '#f3a481' : 'var(--primary)',
+              background: (!billing.charge(quality).allowed || loading || !!currentJobId) ? 'var(--border)' : 'var(--primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
             }}
           >
@@ -775,7 +775,7 @@ const HomePage = () => {
           </button>
 
           <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px', marginTop: '-15px' }}>
-            消耗预估: <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{pricingMap[quality]}</span> 积分
+            <GenerationCharge billing={billing} quality={quality} />
           </div>
         </div>
 
@@ -948,6 +948,9 @@ const HomePage = () => {
                       setPrompt(job.prompt);
                       const styleObj = styles.find(s => s.id === job.style);
                       if (styleObj) setSelectedStyle(styleObj);
+                      else if (['illustration', 'watercolor'].includes(job.style)) setSelectedStyle({
+                        id:job.style, name:job.style === 'watercolor' ? '水彩' : '治愈插画', desc:'来自 AI 助手方案', icon:<Palette size={24} />,
+                      });
                       if (job.aspect_ratio) setAspectRatio(job.aspect_ratio);
                       if (job.ref_image_url) setRefImageUrl(job.ref_image_url);
                       setIsRefining(false); // 退出当前的精修编辑态
@@ -1136,7 +1139,7 @@ const HomePage = () => {
                     className="btn-primary"
                     style={{ width: '100%', padding: '14px', fontSize: '16px' }}
                   >
-                    立即注册 (送 10 积分)
+                    立即注册 (送 {billing.config?.new_user_points ?? "…"} 积分)
                   </button>
                   <button
                     onClick={() => setShowGuestModal(false)}

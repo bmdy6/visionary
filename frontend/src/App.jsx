@@ -5,8 +5,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AdminPage from './pages/AdminPage';
-import HomePage from './pages/HomePage';
-import MobileHomePage from './pages/MobileHomePage';
+import CreationPage from './pages/CreationPage';
 import ProfilePage from './pages/ProfilePage';
 import HistoryPage from './pages/HistoryPage';
 import PricingPage from './pages/PricingPage';
@@ -121,7 +120,7 @@ function App() {
           path="/"
           element={
             <PrivateRoute>
-              {renderWithLayout(isMobile ? <MobileHomePage /> : <HomePage isMobile={isMobile} />)}
+              {renderWithLayout(<CreationPage isMobile={isMobile} />)}
             </PrivateRoute>
           }
         />

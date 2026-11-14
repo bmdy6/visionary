@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { trialBadge } from '../hooks/useBilling';
 import request, { logout } from '../api/request';
 import {
   Images,
@@ -23,6 +24,8 @@ const PCLayout = ({ children }) => {
 
   useEffect(() => {
     fetchUserInfo();
+    window.addEventListener('credits-changed', fetchUserInfo);
+    return () => window.removeEventListener('credits-changed', fetchUserInfo);
   }, [location.pathname]); // 切换页面时刷新用户信息（主要是积分）
 
   const fetchUserInfo = async () => {
@@ -149,7 +152,7 @@ const PCLayout = ({ children }) => {
               boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
             }}>
               <Coins size={16} strokeWidth={2.5} />
-              <span>{userInfo?.points || 0}</span>
+              <span data-testid="credits-badge">{trialBadge(userInfo)}</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

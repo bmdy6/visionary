@@ -6,6 +6,7 @@ import {
 import RechargeModal from '../components/RechargeModal';
 import Showcase from '../components/Showcase';
 import request from '../api/request';
+import useBilling from '../hooks/useBilling';
 import { PulseIcon, OrbitIcon, LatticeIcon } from '../components/PricingIcons';
 
 // 手机端专用高级翻转卡片
@@ -158,6 +159,7 @@ const MobilePricingCard = ({ tier, onRecharge }) => {
 };
 
 const MobilePricingPage = ({ isMobile }) => {
+  const { config } = useBilling();
   const navigate = useNavigate();
   const [showRecharge, setShowRecharge] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState(null);
@@ -277,7 +279,7 @@ const MobilePricingPage = ({ isMobile }) => {
               { label: '风格种类', std: '基础风格', adv: '全量解锁', master: '旗舰专属' },
               { label: '迭代精修', std: '不支持', adv: '2次精修', master: '深度进化' },
               { label: '渲染性能', std: 'Core', adv: 'Pro', master: 'Ultra' },
-              { label: '单次消耗', std: '5 积分', adv: '10 积分', master: '15 积分' }
+              { label: '单次消耗', std: `${config?.pricing.standard ?? '…'} 积分`, adv: `${config?.pricing.hd ?? '…'} 积分`, master: `${config?.pricing.master ?? '…'} 积分` }
             ].map(row => (
               <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>{row.label}</span>

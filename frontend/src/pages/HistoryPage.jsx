@@ -131,6 +131,7 @@ const HistoryPage = ({ isMobile }) => {
   const getFeatureLabel = (img) => {
     const qMap = { 'standard': '标准', 'hd': '高清', 'master': '大师' };
     const sMap = {
+      'illustration':'治愈插画', 'watercolor':'水彩',
       'real': '极致写实', 'anime': '二次元', 'oil': '油画',
       'cyber': '赛博', '3d': '3D渲染', 'ink': '水墨', 'poster': '海报',
       'default': '默认', 'product': '电商白底', 'tech_poster': '科技海报',
@@ -261,7 +262,7 @@ const HistoryPage = ({ isMobile }) => {
                                whiteSpace: 'nowrap',
                                flexShrink: 0
                              }}>
-                               {img.quality === 'master' && '✦ '}{getFeatureLabel(img)}
+                               {img.quality === 'master' && '✦ '}{getFeatureLabel(img)}{img.source === 'assistant' ? ' · AI 助手' : ''}
                              </div>
                            </div>
 
@@ -372,7 +373,7 @@ const HistoryPage = ({ isMobile }) => {
               <div style={{ padding: '32px 32px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div style={{ color: 'var(--primary)', fontWeight: '900', fontSize: '11px', letterSpacing: '1px', background: 'rgba(230,107,51,0.1)', padding: '4px 12px', borderRadius: '20px' }}>
-                    {getFeatureLabel(selectedImage).toUpperCase()}
+                    {getFeatureLabel(selectedImage).toUpperCase()}{selectedImage.source === 'assistant' ? ' · AI 助手' : ''}
                   </div>
                   <button onClick={() => setSelectedImage(null)} style={{ background: 'transparent', border: 'none', color: '#666', cursor: 'pointer' }}><X size={20} /></button>
                 </div>

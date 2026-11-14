@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
+from backend.core.billing_config import new_user_points
 
 class User(Base):
     __tablename__ = "users"
@@ -12,8 +13,10 @@ class User(Base):
     phone = Column(String(20), unique=True, index=True, nullable=True)
     password_hash = Column(String(255))
     fingerprint = Column(String)
-    points = Column(Integer, default=10)  # 默认赠送 10 积分
+    points = Column(Integer, default=new_user_points)
     frozen_points = Column(Integer, default=0)  # 冻结积分
+    trial_remaining = Column(Integer, default=0, nullable=False, server_default="0")
+    frozen_trials = Column(Integer, default=0, nullable=False, server_default="0")
     uid = Column(String(20), unique=True, index=True)
     last_ip = Column(String)
     is_admin = Column(Boolean, default=False)
@@ -35,6 +38,9 @@ class ImageLog(Base):
     quality = Column(String)  # standard / hd / master
     style = Column(String, default="default")  # 风格标注
     final_prompt = Column(Text)  # 最终包装后的提示词
+    source = Column(String, default="normal", nullable=False, server_default="normal")
+    trial_used = Column(Boolean, default=False, nullable=False, server_default="0")
+    aspect_ratio = Column(String, default="1:1", server_default="1:1")
     cost_points = Column(Integer)
     points_snapshot = Column(Integer, default=0) # 记录当时扣除的积分快照
     image_url = Column(String)
@@ -105,3 +111,24 @@ class VerificationCode(Base):
     expires_at = Column(DateTime)
     is_used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(__import__('datetime').timezone(__import__('datetime').timedelta(hours=8))))
+
+
+class AssistantConversation(Base):
+    __tablename__ = "assistant_conversations"
+    id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    revision = Column(Integer, default=0, nullable=False)
+    messages = Column(Text, default="[]", nullable=False)
+    reference_url = Column(Text, nullable=True)
+    reference_name = Column(String(120), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AssistantPlan(Base):
+    __tablename__ = "assistant_plans"
+    __table_args__ = (UniqueConstraint("plan_id", "version", name="uq_assistant_plan_version"),)
+    id = Column(Integer, primary_key=True)
+    plan_id = Column(String(36), ForeignKey("assistant_conversations.id"), nullable=False, index=True)
+    version = Column(Integer, nullable=False)
+    data = Column(Text, nullable=False)
+    task_id = Column(Integer, nullable=True)
