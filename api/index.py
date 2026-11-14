@@ -7,11 +7,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from backend.api import auth, image, admin, user, feedback, payment
+from backend.core.storage import local_path
+from fastapi import HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
 app = FastAPI()
+
+# File serving is lazy: configured COS deployments need no writable local disk.
+@app.get("/api/creations/{filename}", include_in_schema=False)
+async def local_creation(filename: str):
+    try:
+        path = local_path(filename)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="图片不存在")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="图片不存在")
+    return FileResponse(path)
 
 import traceback
 

@@ -22,3 +22,6 @@ dist/
 .vercel/
 .idea/
 .vscode/
+
+# Local generated images and reference uploads
+backend/data/creations/
