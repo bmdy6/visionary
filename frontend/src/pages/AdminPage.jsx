@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import request from '../api/request';
+import CreditSettings from './CreditSettings';
+import './assistant/assistant.css';
 import {
   CheckCircle2, XCircle, ShieldCheck, UserPlus, ListChecks,
   BookOpen, ArrowLeft, LayoutDashboard, BarChart3,
@@ -123,13 +125,14 @@ const AdminPage = () => {
       <div style={{
         display: 'flex', gap: '10px', marginBottom: '30px',
         background: '#f5f5f7', padding: '6px', borderRadius: '12px',
-        width: 'fit-content'
+        width: 'fit-content', maxWidth: '100%', flexWrap: 'wrap'
       }}>
         {[
           { id: 'dashboard', label: '仪表盘', icon: LayoutDashboard },
           { id: 'audit', label: '充值审核', icon: ListChecks, count: pendingLogs.length },
           { id: 'invitation', label: '邀请审计', icon: UserPlus },
           { id: 'recharge', label: '手动充值', icon: UserPlus },
+          { id: 'settings', label: '系统设置', icon: ShieldCheck },
           { id: 'feedback', label: '意见反馈', icon: BookOpen, count: feedbacks.length },
         ].map(tab => (
           <div
@@ -156,6 +159,8 @@ const AdminPage = () => {
           </div>
         ))}
       </div>
+
+      {activeTab === 'settings' && <CreditSettings />}
 
       {activeTab === 'dashboard' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>

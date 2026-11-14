@@ -14,10 +14,15 @@ def create_image_log(
     root_id: int = None,
     iteration: int = 0,
     status: str = "success",
-    error_msg: str = None
+    error_msg: str = None,
+    trial_used: bool = False,
+    source: str = "normal",
+    aspect_ratio: str = "1:1",
+    commit: bool = True
 ):
     db_log = models.ImageLog(
         user_id=user_id,
+        trial_used=trial_used, source=source, aspect_ratio=aspect_ratio,
         prompt=prompt,
         quality=quality,
         style=style,
@@ -31,8 +36,11 @@ def create_image_log(
         error_msg=error_msg
     )
     db.add(db_log)
-    db.commit()
-    db.refresh(db_log)
+    if commit:
+        db.commit()
+        db.refresh(db_log)
+    else:
+        db.flush()
     return db_log
 
 def get_user_image_logs(db: Session, user_id: int, skip: int = 0, limit: int = 10, keyword: str = None):
@@ -67,12 +75,15 @@ def reset_active_tasks(db: Session, user_id: int):
     if not active_tasks:
         return
 
+    total_trials = sum(bool(task.trial_used) for task in active_tasks)
+
     # 计算需要释放的总冻结积分
     total_cost = sum(task.cost_points for task in active_tasks)
 
     # 释放冻结积分
     db.query(models.User).filter(models.User.id == user_id).update(
-        {models.User.frozen_points: models.User.frozen_points - total_cost}
+        {models.User.frozen_points: models.User.frozen_points - total_cost,
+         models.User.frozen_trials: models.User.frozen_trials - total_trials}
     )
 
     # 标记任务为失败

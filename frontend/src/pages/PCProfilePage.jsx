@@ -348,7 +348,7 @@ const PCProfilePage = () => {
                   </div>
                   <div style={{ background: '#f8f9fa', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>今日获得奖励</div>
-                    <div style={{ fontSize: '28px', fontWeight: '900' }}>{inviteStats?.today_reward_count || 0} / {inviteStats?.daily_limit || 5} <span style={{ fontSize: '14px', fontWeight: '500' }}>次</span></div>
+                    <div style={{ fontSize: '28px', fontWeight: '900' }}>{inviteStats?.today_reward_count || 0} / {inviteStats?.daily_limit ?? "…"} <span style={{ fontSize: '14px', fontWeight: '500' }}>次</span></div>
                   </div>
                 </div>
 
@@ -356,9 +356,9 @@ const PCProfilePage = () => {
                   <div style={{ fontWeight: '800', marginBottom: '20px' }}>奖励规则</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {[
-                      { t: '好友注册', d: '好友使用您的邀请码注册，立即获得 5 积分启航礼包。' },
-                      { t: '首画成功', d: '好友完成首次 AI 图像生成后，您将获得 10 积分推广奖励。' },
-                      { t: '每日上限', d: '每人每日最多可通过邀请获得 5 次奖励（共 50 积分）。' }
+                      { t: '好友注册', d: `好友使用您的邀请码注册，立即获得 ${inviteStats?.reward_points ?? '…'} 积分启航礼包。` },
+                      { t: '首画成功', d: `好友完成首次 AI 图像生成后，您将获得 ${inviteStats?.reward_points ?? '…'} 积分推广奖励。` },
+                      { t: '每日上限', d: `每人每日最多可通过邀请获得 ${inviteStats?.daily_limit ?? '…'} 次奖励（共 ${(inviteStats?.daily_limit ?? 0) * (inviteStats?.reward_points ?? 0)} 积分）。` }
                     ].map((item, idx) => (
                       <div key={idx} style={{ display: 'flex', gap: '16px' }}>
                         <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary-glow)', color: 'var(--primary)', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: '800' }}>{idx + 1}</div>

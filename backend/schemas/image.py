@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 class ImageCreate(BaseModel):
+    plan_id: Optional[str] = None
+    plan_version: Optional[int] = None
     prompt: str
     quality: str = "standard"  # standard, hd, master
     style: str = "default"     # 新增：风格 ID

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useBilling, { creditsChanged } from '../hooks/useBilling';
+import GenerationCharge from '../components/GenerationCharge';
 import request from '../api/request';
 import {
   Sparkles, Zap, Diamond, Crown, X, Download, ArrowUpCircle, Palette, Settings2, Award, Images, Plus, ArrowUp, Maximize2, Wand2,
@@ -126,6 +128,7 @@ const ResultCard = ({ job, onOpenNotes, onPreview, onRefine }) => {
 
 
 const MobileHomePage = () => {
+  const billing = useBilling();
   const stackRef = useRef(null);
   const [prompt, setPrompt] = useState('');
   const [quality, setQuality] = useState('standard');
@@ -138,7 +141,7 @@ const MobileHomePage = () => {
   const [selectedStyle, setSelectedStyle] = useState({ id: 'default', name: '默认风格', desc: '原生艺术呈现', icon: '✨', pts: 'All', placeholder: '主题：【在此输入你想生成的画面】' });
   const [aspectRatio, setAspectRatio] = useState('1:1');
   const [refImageUrl, setRefImageUrl] = useState('');
-  const [pricingMap, setPricingMap] = useState({ 'standard': 5, 'hd': 10, 'master': 15 });
+  const pricingMap = billing.config?.pricing || {};
   const [selectedJob, setSelectedJob] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [enhancing, setEnhancing] = useState(false);
@@ -184,7 +187,6 @@ const MobileHomePage = () => {
     } else {
       setUserInfo({ username: '游客用户', points: 0, uid: 'GUEST' });
     }
-    fetchConfig();
     checkPendingPrompt();
     loadActiveJobs(); // 加载持久化任务
   }, []);
@@ -228,6 +230,7 @@ const MobileHomePage = () => {
         if (statusRes.status === 'success') {
           clearInterval(timer);
           delete pollTimers.current[jobId];
+          creditsChanged();
           setJobs(prev => prev.map(j => j.id === jobId ? {
             ...j, status: 'success', progress: 100, result: statusRes.image_url,
             ref_image_url: statusRes.ref_image_url, quality: statusRes.quality, style: statusRes.style
@@ -235,6 +238,7 @@ const MobileHomePage = () => {
         } else if (statusRes.status === 'failed') {
           clearInterval(timer);
           delete pollTimers.current[jobId];
+          creditsChanged();
           setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'failed', error: statusRes.error } : j));
         } else {
           setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: statusRes.status, progress: j.progress + 5 > 95 ? 95 : j.progress + 5 } : j));
@@ -262,8 +266,12 @@ const MobileHomePage = () => {
       if (data.style) {
         const styleObj = styles.find(s => s.id === data.style);
         if (styleObj) setSelectedStyle(styleObj);
+        else if (['illustration', 'watercolor'].includes(data.style)) setSelectedStyle({
+          id:data.style, name:data.style === 'watercolor' ? '水彩' : '治愈插画', desc:'来自 AI 助手方案', icon:<Palette size={24} />,
+        });
       }
       if (data.quality) setQuality(data.quality);
+      if (data.aspect_ratio) setAspectRatio(data.aspect_ratio);
       if (data.ref_image_url) setRefImageUrl(data.ref_image_url);
 
       // 捕获精修状态
@@ -359,12 +367,7 @@ const MobileHomePage = () => {
     }
   }, [jobs]);
 
-  const fetchConfig = async () => {
-    try {
-      const data = await request.get('/image/config');
-      if (data.pricing) setPricingMap(data.pricing);
-    } catch (err) {}
-  };
+
 
   const styles = [
     // --- 第一梯队：全量基础 (All) ---
@@ -417,8 +420,8 @@ const MobileHomePage = () => {
     setShowConfirmModal(false);
 
     // 积分预检
-    const cost = pricingMap[quality] || 5;
-    if (userInfo && userInfo.points < cost) {
+    const cost = billing.charge(quality).cost;
+    if (!billing.charge(quality).allowed) {
       setRequiredPoints(cost);
       setShowPointsModal(true);
       return;
@@ -452,6 +455,7 @@ const MobileHomePage = () => {
         setRefineParentId(null);
         setRefineRootId(null);
       }
+      creditsChanged();
       const taskId = res.id;
 
       const tip = document.createElement('div');
@@ -668,20 +672,22 @@ const MobileHomePage = () => {
 
             <button
                 onClick={handleGenerate}
-                disabled={enhancing || !prompt.trim() || (selectedStyle.requiresImage && !refImageUrl)}
+                aria-label="普通模式生成"
+                disabled={(!isGuest && !billing.charge(quality).allowed) || enhancing || !prompt.trim() || (selectedStyle.requiresImage && !refImageUrl)}
                 style={{
                   width: '40px', height: '40px',
-                  background: quality === 'master' ? 'linear-gradient(135deg, #A855F7 0%, #7C3AED 100%)' : 'linear-gradient(135deg, #C59C8F 0%, #A87B6D 100%)',
+                  background: !billing.charge(quality).allowed ? 'var(--border)' : quality === 'master' ? 'linear-gradient(135deg, #A855F7 0%, #7C3AED 100%)' : 'linear-gradient(135deg, #C59C8F 0%, #A87B6D 100%)',
                   borderRadius: '50%', border: 'none', color: 'white',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.4), 0 4px 10px rgba(0,0,0,0.1)',
-                  opacity: (enhancing || !prompt.trim() || (selectedStyle.requiresImage && !refImageUrl)) ? 0.5 : 1
+                  opacity: (!billing.charge(quality).allowed || enhancing || !prompt.trim() || (selectedStyle.requiresImage && !refImageUrl)) ? 0.5 : 1
                 }}
               >
               <ArrowUp size={22} />
             </button>
           </div>
 
+          <GenerationCharge billing={billing} quality={quality} />
           <input id="mobile-upload" type="file" accept="image/*" hidden onChange={(e) => {
             const file = e.target.files[0];
             if (file) {

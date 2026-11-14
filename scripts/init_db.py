@@ -13,7 +13,8 @@ def main():
     parser.add_argument("--admin", metavar="USERNAME", help="create an administrator; password is prompted")
     parser.add_argument("--if-missing", action="store_true", help="keep an existing administrator unchanged")
     args = parser.parse_args()
-    Base.metadata.create_all(bind=engine)
+    from backend.models.migrations import migrate
+    migrate(engine)
     print("Database tables initialized (no seeded users).")
     if args.admin:
         with session_scope() as db:

@@ -14,6 +14,8 @@ from backend.schemas import image as image_schema
 from backend.crud import image as image_crud
 from backend.crud import recharge as recharge_crud
 from backend.core.config import get_config
+from backend.core.billing_config import setting, public_billing
+import json
 from backend.core.storage import store_url, store_base64, provider_reference, local_path, LOCAL_URL_PREFIX, get_storage_backend
 from backend.core.image_provider import get_image_provider, demo_image
 from backend.core.deps import get_current_user
@@ -74,13 +76,12 @@ TIER_CONFIG = {
     "master": {"size": "1024x1792", "quality": "standard"}
 }
 
-# 计费标准 (用户支付积分)
-PRICING = {"standard": 5, "hd": 10, "master": 15}
-
 # 成本矩阵 (RMB)
 COST_RMB = {"standard": 0.45, "hd": 0.58, "master": 0.58}
 
 STYLE_PROMPT_TEMPLATES = {
+    "illustration": "温暖治愈的插画风格，自然柔和的光线，细腻笔触与干净构图。画面内容：【主题】",
+    "watercolor": "水彩绘画风格，轻盈透明的颜料晕染、纸张肌理与柔和色彩。画面内容：【主题】",
     "default": "请根据【主题】自动生成一张高质量、高审美的作品。",
     "real": "极致写实风格，要求仿真现实，追求 8K 摄影级画质，皮肤纹理清晰，光影自然，主体与背景深度融合。内容：【主题】",
     "product": "以专业设计师的视角重新设计这个【主题】商品广告。以符合当下潮流和目标的精致设计。高阶商业审美，极简且富有视觉冲击力。",
@@ -198,9 +199,10 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
 
         with session_scope() as db:
             log = db.query(models.ImageLog).filter(models.ImageLog.id == log_id).first()
-            if log:
-                log.status = "generating"
-                if hasattr(log, "final_prompt"): log.final_prompt = prompt_to_send
+            if not log or log.status not in ("pending", "generating"):
+                return  # A reset must not resurrect a released reservation.
+            log.status = "generating"
+            if hasattr(log, "final_prompt"): log.final_prompt = prompt_to_send
 
         # 3. 演示结果也经过同一个存储与结算流程。
         if provider == "demo":
@@ -283,14 +285,21 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
         with session_scope() as db:
             log = db.query(models.ImageLog).filter(models.ImageLog.id == log_id).first()
             user = db.query(models.User).filter(models.User.id == user_id).first()
-            if log and user:
+            if log and user and log.status in ("pending", "generating", "storing"):
                 log.status, log.image_url = "success", final_cos_url
                 log.ref_image_url = processed_ref_url # 存入参考图链接
                 log.points_snapshot = cost # 记录消费快照
                 log.api_duration, log.storage_duration = api_ms, store_ms
                 log.total_duration = int((time.time() - task_start_time) * 1000)
+                if log.trial_used:
+                    db.query(models.User).filter_by(id=user_id).update({
+                        models.User.trial_remaining: models.User.trial_remaining - 1,
+                        models.User.frozen_trials: models.User.frozen_trials - 1,
+                    }, synchronize_session=False)
                 user.points -= cost # 成功后才真正扣除余额
                 user.frozen_points = max(0, user.frozen_points - cost)
+
+                db.flush()  # Include this successful image in the first-image reward query.
 
                 # 6. 邀请奖励触发 (首画成功后发放给邀请人)
                 if user.invited_by_id:
@@ -307,17 +316,18 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
 
                             inviter = db.query(models.User).filter(models.User.id == user.invited_by_id).first()
                             if inviter:
-                                inviter.points += 10
+                                reward = setting("INVITE_REWARD_POINTS")
+                                inviter.points += reward
                                 recharge_crud.create_recharge_log(
                                     db,
                                     user_id=inviter.id,
-                                    amount=10,
+                                    amount=reward,
                                     status="success",
                                     admin_note=f"邀请好友 {user.uid} 完成首画奖励",
                                     operator_id=0,
                                     trade_no=f"INVITE_REWARD_{user.id}_{int(time.time())}"
                                 )
-                                print(f"--- [Invitation Reward] Inviter {inviter.id} rewarded 10 pts for invitee {user.id} ---")
+                                print(f"--- [Invitation Reward] Inviter {inviter.id} rewarded {reward} pts for invitee {user.id} ---")
 
                 # 打印增强版控制台审计日志
                 print(f"\n--- [Task Audit] ID: {log_id} | SUCCESS ---")
@@ -339,14 +349,18 @@ async def process_image_task(log_id: int, prompt: str, quality: str, style: str,
         with session_scope() as db:
             log = db.query(models.ImageLog).filter(models.ImageLog.id == log_id).first()
             user = db.query(models.User).filter(models.User.id == user_id).first()
-            if log and user:
+            if log and user and log.status in ("pending", "generating", "storing"):
+                if log.trial_used:
+                    db.query(models.User).filter_by(id=user_id).update({
+                        models.User.frozen_trials: models.User.frozen_trials - 1,
+                    }, synchronize_session=False)
                 log.status, log.error_msg = "failed", error_msg
                 # 失败仅释放冻结额度，不退回 points (因为 points 没变)
                 user.frozen_points = max(0, user.frozen_points - cost)
 
 @router.get("/config")
 async def get_config_info():
-    return {"pricing": PRICING, "tiers": TIER_CONFIG, "demo_mode": get_image_provider() == "demo"}
+    return {**public_billing(), "tiers": TIER_CONFIG, "demo_mode": get_image_provider() == "demo"}
 
 @router.get("/download")
 async def download_image(id: int, db: Session = Depends(get_db)):
@@ -386,47 +400,87 @@ async def enhance_prompt_endpoint(
 
 @router.post("/generate")
 async def generate_image(payload: image_schema.ImageCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    active_count = image_crud.count_active_tasks(db, current_user.id)
-    if active_count >= 3: raise HTTPException(status_code=429, detail="任务过多")
-    if len(payload.prompt) > 1000: raise HTTPException(status_code=400, detail="提示词过长")
+    plan = None
+    if payload.plan_id is not None or payload.plan_version is not None:
+        from backend.api.assistant import require_enabled, owned
+        require_enabled()
+        if not payload.plan_id or not payload.plan_version:
+            raise HTTPException(422, "方案标识和版本必须同时提供")
+        owned(db, payload.plan_id, current_user.id)
+        plan = db.query(models.AssistantPlan).filter_by(plan_id=payload.plan_id, version=payload.plan_version).first()
+        if not plan:
+            raise HTTPException(404, "方案不存在")
+        # Atomic claim is in the same transaction as reservation and the task.
+        claimed = db.query(models.AssistantPlan).filter_by(id=plan.id, task_id=None).update(
+            {"task_id": -1}, synchronize_session=False)
+        if not claimed:
+            db.refresh(plan)
+            return {"id":plan.task_id, "status":"existing", "remaining_points":current_user.points}
+        payload = image_schema.ImageCreate(**json.loads(plan.data))
 
-    cost = PRICING.get(payload.quality, 5)
-    # 静默预占：仅增加 frozen_points，检查 points - frozen_points 是否足够
-    result = db.query(models.User).filter(
-        models.User.id == current_user.id,
-        models.User.points - models.User.frozen_points >= cost
-    ).update({"frozen_points": models.User.frozen_points + cost}, synchronize_session=False)
-    if result == 0: raise HTTPException(status_code=403, detail="余额不足")
+    try:
+        active_count = image_crud.count_active_tasks(db, current_user.id)
+        if active_count >= 3:
+            raise HTTPException(429, "任务过多")
+        if not payload.prompt.strip() or len(payload.prompt) > 1000:
+            raise HTTPException(400, "提示词不能为空或过长")
+        pricing = setting('TIER_COSTS')
+        if payload.quality not in pricing or payload.aspect_ratio not in ('1:1', '9:16', '16:9'):
+            raise HTTPException(422, "无效的档位或比例")
 
-    # 迭代次数校验 (基于 root_id 的总变体数限制)
-    if payload.root_id:
-        max_refines = 3 if payload.quality == "master" else (2 if payload.quality == "hd" else 0)
-        # 统计该种子图下的所有成功变体数量
-        total_refined_count = db.query(models.ImageLog).filter(
-            models.ImageLog.root_id == payload.root_id,
-            models.ImageLog.status == "success"
-        ).count()
+        # Validate before any reservation; errors cannot strand a frozen balance.
+        if payload.root_id:
+            max_refines = 3 if payload.quality == "master" else (2 if payload.quality == "hd" else 0)
+            total_refined_count = db.query(models.ImageLog).filter(
+                models.ImageLog.root_id == payload.root_id, models.ImageLog.status == "success").count()
+            if total_refined_count >= max_refines:
+                raise HTTPException(403, f"该种子图的迭代变体已达上限 ({max_refines}次)")
 
-        if total_refined_count >= max_refines:
-            raise HTTPException(status_code=403, detail=f"该种子图的迭代变体已达上限 ({max_refines}次)")
+        trial_used = False
+        if payload.quality in setting('TRIAL_ALLOWED_TIERS'):
+            trial_used = bool(db.query(models.User).filter(
+                models.User.id == current_user.id,
+                models.User.trial_remaining - models.User.frozen_trials > 0
+            ).update({'frozen_trials':models.User.frozen_trials + 1}, synchronize_session=False))
+        cost = 0 if trial_used else pricing[payload.quality]
+        if not trial_used:
+            reserved = db.query(models.User).filter(
+                models.User.id == current_user.id,
+                models.User.points - models.User.frozen_points >= cost
+            ).update({'frozen_points':models.User.frozen_points + cost}, synchronize_session=False)
+            if not reserved:
+                raise HTTPException(403, "余额不足")
 
-    pending_log = image_crud.create_image_log(
-        db, user_id=current_user.id, prompt=payload.prompt, quality=payload.quality,
-        style=payload.style, cost_points=cost, status="pending",
-        ref_image_url=payload.ref_image_url,
-        parent_id=payload.parent_id,
-        root_id=payload.root_id,
-        iteration=payload.iteration
-    )
-    db.commit()
+        pending_log = image_crud.create_image_log(
+            db, user_id=current_user.id, prompt=payload.prompt, quality=payload.quality,
+            style=payload.style, cost_points=cost, status="pending", ref_image_url=payload.ref_image_url,
+            parent_id=payload.parent_id, root_id=payload.root_id, iteration=payload.iteration,
+            trial_used=trial_used, source='assistant' if plan else 'normal', aspect_ratio=payload.aspect_ratio, commit=False)
+        if plan:
+            plan.task_id = pending_log.id
+        db.commit()
+        db.refresh(current_user)
+    except Exception:
+        db.rollback()
+        raise
     background_tasks.add_task(process_image_task, pending_log.id, payload.prompt, payload.quality, payload.style, cost, current_user.id, time.time(), payload.ref_image_url, payload.aspect_ratio)
-    return {"id": pending_log.id, "status": "pending", "remaining_points": current_user.points, "iteration": payload.iteration}
+    return {"id":pending_log.id, "status":"pending", "remaining_points":current_user.points,
+            "trial_remaining":current_user.trial_remaining, "frozen_trials":current_user.frozen_trials,
+            "iteration":payload.iteration}
 
 @router.get("/status/{id}")
 async def get_task_status(id: int, db: Session = Depends(get_db)):
     log = db.query(models.ImageLog).filter(models.ImageLog.id == id).first()
+    if not log:
+        raise HTTPException(404, "任务不存在")
     return {
         "id": log.id,
+        "source": log.source,
+        "quality": log.quality,
+        "style": log.style,
+        "root_id": log.root_id,
+        "ref_image_url": log.ref_image_url,
+        "aspect_ratio": log.aspect_ratio,
         "status": log.status,
         "image_url": log.image_url,
         "final_prompt": getattr(log, "final_prompt", None),
@@ -441,6 +495,9 @@ async def get_history(skip: int = 0, limit: int = 20, db: Session = Depends(get_
     return [
         {
             "id": l.id,
+            "source": l.source,
+            "trial_used": l.trial_used,
+            "aspect_ratio": l.aspect_ratio,
             "prompt": l.prompt,
             "final_prompt": getattr(l, "final_prompt", None),
             "status": l.status,

@@ -187,7 +187,7 @@ const SharePosterModal = ({ imageLog, userInfo, onClose }) => {
                 ...getTextStyle(activeTemplate)
               }}>
                 扫描左侧二维码 <br/>
-                领取 <span style={{ color: '#FF6B00' }}>5 积分</span> 开启创作
+                扫码注册，开启创作
               </div>
             </div>
 

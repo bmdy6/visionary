@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from ..models import models
 from ..schemas import user as user_schema
 from ..core.utils import generate_unique_uid
+from ..core.billing_config import registration_grant
 
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
@@ -19,7 +20,8 @@ def create_user(db: Session, user: user_schema.UserCreate, password_hash: str, i
         fingerprint=user.fingerprint,
         last_ip=ip,
         invited_by_id=invited_by_id,
-        uid=generate_unique_uid(db)
+        uid=generate_unique_uid(db),
+        **registration_grant()
     )
     db.add(db_user)
     db.commit()
@@ -34,7 +36,8 @@ def create_user_by_email(db: Session, user: user_schema.UserCreateEmail, passwor
         fingerprint=user.fingerprint,
         last_ip=ip,
         invited_by_id=invited_by_id,
-        uid=generate_unique_uid(db)
+        uid=generate_unique_uid(db),
+        **registration_grant()
     )
     db.add(db_user)
     db.commit()

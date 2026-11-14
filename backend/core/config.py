@@ -28,7 +28,7 @@ def get_config(key: str, default=None):
         except Exception as e:
             print(f"--- [Config Error] 无法从数据库读取配置: {e} ---")
             # 数据库故障时，直接回退到环境变量
-            return os.getenv(key, default)
+            return os.getenv(key) or default
 
     # 1. 尝试从数据库缓存获取
     val = _config_cache.get(key)
@@ -37,7 +37,14 @@ def get_config(key: str, default=None):
 
     # 2. 数据库没配置或为空，回退到环境变量
     env_val = os.getenv(key)
-    if env_val is not None:
+    if env_val is not None and env_val.strip() != "":
         return env_val
 
     return default
+
+
+def invalidate_config_cache():
+    """Next read reloads the table, including writes from the admin UI."""
+    global _last_fetch, _config_cache
+    _last_fetch = 0
+    _config_cache = {}

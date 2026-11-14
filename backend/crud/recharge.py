@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from ..core.billing_config import setting
 from ..models import models
 from fastapi import HTTPException, status
 
@@ -81,7 +82,7 @@ def can_receive_invitation_reward(db: Session, inviter_id: int):
         models.RechargeLog.trade_no.like("INVITE_REWARD_%"),
         models.RechargeLog.created_at >= today_start
     ).count()
-    return count < 5
+    return count < setting("INVITE_DAILY_LIMIT")
 
 def is_invitee_rewarded(db: Session, invitee_id: int):
     """检查该受邀者是否已经为邀请人贡献过奖励"""

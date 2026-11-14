@@ -35,6 +35,8 @@ class UserInfo(UserBase):
     uid: Optional[str] = None
     points: int
     frozen_points: int = 0
+    trial_remaining: int = 0
+    frozen_trials: int = 0
     is_admin: bool
     has_used_experience: bool = False
     created_at: datetime

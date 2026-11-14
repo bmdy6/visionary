@@ -12,6 +12,7 @@ from ..core import security
 from ..core.deps import get_current_user
 from ..core.email import send_verification_email
 from ..core.config import get_config
+from ..core.billing_config import setting, registration_grant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -94,13 +95,14 @@ def register(user: user_schema.UserCreateEmail, request: Request, db: Session = 
     client_ip = request.client.host if request.client else "unknown"
     new_user = user_crud.create_user_by_email(db=db, user=user, password_hash=hashed_password, ip=client_ip, invited_by_id=invited_by_id)
 
-    # 6. 如果有邀请人，发放受邀奖励 (5积分)
+    # 6. 按配置发放受邀奖励
     if inviter:
-        new_user.points += 5
+        reward = setting("INVITE_REWARD_POINTS")
+        new_user.points += reward
         recharge_crud.create_recharge_log(
             db,
             user_id=new_user.id,
-            amount=5,
+            amount=reward,
             status="success",
             admin_note=f"使用邀请码 {user.invite_code} 注册奖励",
             operator_id=0,
@@ -168,24 +170,28 @@ def register_phone(user: user_schema.UserCreatePhone, request: Request, db: Sess
         fingerprint=user.fingerprint,
         last_ip=client_ip,
         invited_by_id=invited_by_id,
-        uid=user_crud.generate_unique_uid(db)
+        uid=user_crud.generate_unique_uid(db),
+        **registration_grant()
     )
     db.add(db_user)
     db.flush()
 
-    # 6. 如果有邀请人，发放受邀奖励 (5积分)
+    # 6. 按配置发放受邀奖励
     if inviter:
-        db_user.points += 5
+        reward = setting("INVITE_REWARD_POINTS")
+        db_user.points += reward
         recharge_crud.create_recharge_log(
             db,
             user_id=db_user.id,
-            amount=5,
+            amount=reward,
             status="success",
             admin_note=f"使用邀请码 {user.invite_code} 注册奖励",
             operator_id=0,
             trade_no=f"INVITE_JOIN_PHONE_{db_user.id}_{int(datetime.now().timestamp())}"
         )
-        db.commit()
+
+    db.commit()
+    db.refresh(db_user)
 
     # 7. 自动登录：生成 Token
     sub_val = db_user.username if db_user.username else db_user.phone
@@ -419,7 +425,8 @@ def get_invitation_stats(db: Session = Depends(get_db), current_user: models.Use
     return {
         "invited_count": invited_count,
         "today_reward_count": today_reward_count,
-        "daily_limit": 5,
+        "daily_limit": setting("INVITE_DAILY_LIMIT"),
+        "reward_points": setting("INVITE_REWARD_POINTS"),
         "invite_code": current_user.uid,
         "invite_url": f"{get_config('FRONTEND_URL', 'http://localhost:5173')}/register?invite={current_user.uid}"
     }

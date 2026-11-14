@@ -159,3 +159,37 @@ def list_invitation_logs(
             "fingerprint": l[1].fingerprint
         } for l in logs
     ]
+
+
+@router.get('/settings/credits')
+def credit_settings(admin: models.User = Depends(admin_required)):
+    from ..core.billing_config import DEFAULTS, setting
+    return {key: {'value': setting(key), 'default': default} for key, default in DEFAULTS.items()}
+
+
+@router.put('/settings/credits')
+def update_credit_settings(values: dict[str, str], db: Session = Depends(get_db), admin: models.User = Depends(admin_required)):
+    import json
+    import uuid
+    from ..core.billing_config import parse_setting, setting
+    from ..core.config import invalidate_config_cache
+    try:
+        for key, value in values.items():
+            parse_setting(key, value)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    changes = {}
+    for key, value in values.items():
+        before = setting(key)
+        row = db.query(models.SystemConfig).filter_by(config_key=key).first()
+        if row:
+            row.config_value = value.strip()
+        else:
+            db.add(models.SystemConfig(config_key=key, config_value=value.strip()))
+        changes[key] = {'before': before, 'after': parse_setting(key, value)}
+    if changes:
+        recharge_crud.create_recharge_log(db, user_id=admin.id, amount=0, operator_id=admin.id,
+            admin_note=json.dumps(changes, ensure_ascii=False), trade_no='CONFIG_' + uuid.uuid4().hex)
+    db.commit()
+    invalidate_config_cache()
+    return credit_settings(admin)

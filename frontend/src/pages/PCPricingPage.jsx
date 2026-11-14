@@ -6,6 +6,7 @@ import {
 import RechargeModal from '../components/RechargeModal';
 import Showcase from '../components/Showcase';
 import request from '../api/request';
+import useBilling from '../hooks/useBilling';
 
 import { PulseIcon, OrbitIcon, LatticeIcon } from '../components/PricingIcons';
 
@@ -231,6 +232,7 @@ const PricingCard = ({ tier, onRecharge }) => {
 
 
 const PCPricingPage = () => {
+  const { config } = useBilling();
   const [showRecharge, setShowRecharge] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
@@ -356,7 +358,7 @@ const PCPricingPage = () => {
               { label: '艺术风格库', std: '基础风格 (适合入门)', adv: '全量解锁 (30+ 风格)', master: '旗舰专属 (商业级排版)' },
               { label: '迭代精修能力', std: '不支持精修', adv: '支持 2 次重塑精修', master: '深度进化 (无限精修潜力)' },
               { label: '渲染引擎核心', std: 'Core 基础核心', adv: 'Visionary Pro 增强引擎', master: 'Master Ultra 顶级引擎' },
-              { label: '单次积分消耗', std: '5 积分 / 张', adv: '10 积分 / 张', master: '15 积分 / 张' }
+              { label: '单次积分消耗', std: `${config?.pricing.standard ?? '…'} 积分 / 张`, adv: `${config?.pricing.hd ?? '…'} 积分 / 张`, master: `${config?.pricing.master ?? '…'} 积分 / 张` }
             ].map((row, i) => (
               <tr key={i} style={{ borderBottom: i === 3 ? 'none' : '1px solid rgba(255,255,255,0.05)' }}>
                 <td style={{ padding: '25px 20px', fontWeight: '700', fontSize: '15px' }}>{row.label}</td>

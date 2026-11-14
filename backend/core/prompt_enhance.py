@@ -38,22 +38,10 @@ async def enhance_prompt(raw_prompt: str, style_id: str = "default") -> str:
     调用文本大模型优化用户提示词。
     支持通义千问 (Qwen) 优先，并根据输入的语种自适应回复。
     """
-    # 获取配置
-    dashscope_key = get_config("DASHSCOPE_API_KEY")
-    openai_key = get_config("OPENAI_API_KEY")
-
-    if not dashscope_key and not openai_key:
+    provider = chat_model_config()
+    if provider is None:
         raise Exception("未配置 AI 接口密钥 (DASHSCOPE_API_KEY 或 OPENAI_API_KEY)")
-
-    # 确定模型与接口地址
-    if dashscope_key:
-        api_key = dashscope_key
-        base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        model = "qwen-plus"
-    else:
-        api_key = openai_key
-        base_url = get_config("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        model = "gpt-4o-mini"
+    api_key, base_url, model = provider
 
     # 构建针对风格的动态指令
     style_desc = STYLE_CONTEXT.get(style_id, "通用艺术风格")
@@ -90,3 +78,14 @@ async def enhance_prompt(raw_prompt: str, style_id: str = "default") -> str:
     except Exception as e:
         print(f"--- [Enhance Error] {str(e)} ---")
         raise e
+
+
+def chat_model_config():
+    """Shared provider selection for prompt enhancement and assistant discussion."""
+    qwen = (get_config("DASHSCOPE_API_KEY") or "").strip()
+    compatible = (get_config("OPENAI_API_KEY") or "").strip()
+    if qwen:
+        return qwen, "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"
+    if compatible:
+        return compatible, get_config("OPENAI_BASE_URL", "https://api.openai.com/v1"), "gpt-4o-mini"
+    return None

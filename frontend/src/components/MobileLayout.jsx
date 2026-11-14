@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, LayoutGrid, Gem, User } from 'lucide-react';
+import { trialBadge } from '../hooks/useBilling';
 import request from '../api/request';
 
 const MobileLayout = ({ children }) => {
@@ -26,8 +27,9 @@ const MobileLayout = ({ children }) => {
   useEffect(() => {
     fetchUserInfo();
     // 监听导航变化，在切换页面时刷新积分
+    window.addEventListener('credits-changed', fetchUserInfo);
     const interval = setInterval(fetchUserInfo, 30000); // 30秒轮询一次
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); window.removeEventListener('credits-changed', fetchUserInfo); };
   }, [location.pathname]);
 
   const getActiveTab = () => {
@@ -67,12 +69,12 @@ const MobileLayout = ({ children }) => {
       }}>
         <div style={{ fontWeight: '800', fontSize: '20px', color: '#C59C8F', letterSpacing: '-0.5px' }}>Visionary</div>
         <div style={{
-          fontSize: '12px', fontWeight: '800', color: '#fff',
+          fontSize: '11px', fontWeight: '800', color: '#fff', maxWidth: '65%', textAlign: 'right',
           background: 'linear-gradient(135deg, #C59C8F 0%, #A87B6D 100%)',
           padding: '6px 14px', borderRadius: '20px',
           boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3), 0 4px 12px rgba(197,156,143,0.2)'
         }}>
-          {userInfo?.points || 0} 积分
+          <span data-testid="credits-badge">{trialBadge(userInfo)}</span>
         </div>
       </header>
 
